@@ -4,5 +4,3 @@ gender:male
 botmaster:theBoss	
 organization:ugr
 version:0.0.4
-age:20
-job:estudiante

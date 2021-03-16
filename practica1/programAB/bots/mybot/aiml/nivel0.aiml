@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+<!--
+    Inteligencia Artificial 
+    Practica 1
+    Autor: Valentino Lugli
+    Fecha: Marzo, 2021
+-->
+
+<!-- NIVEL 0 -->
+<!--    1P: En qué estación estamos. -->
+<!--        Regla principal -->
+<category>
+    <pattern>ESTACION</pattern>
+    <template>
+        <random>
+            <li>Estamos en la estacion de <srai>SEASON</srai>.</li>
+            <li>Te informo, estamos en <srai>SEASON</srai>.</li>
+            <li><srai>SEASON</srai> es la estacion en la que estamos.</li>
+        </random>
+    </template>
+</category>
+
+<!--        Reglas derivadas -->
+<category>
+    <pattern>^ [estacion epoca] ^ [estamos actual] ^</pattern>
+    <template><srai>ESTACION</srai></template>
+</category>
+
+<category>
+    <pattern>^ estamos ^ estacion ^</pattern>
+    <template><srai>ESTACION</srai></template>
+</category>
+
+<!--    2P: En qué fase del día estamos. -->
+<category>
+    <pattern> </pattern>
+
+</category>
+
+<!--    3P: Qué día de la semana es <hoy/manyana/pasado manyana>. -->
+<!--        Regla Principal -->
+<category>
+    <pattern>DIA SEMANA *</pattern>
+    <template> </template>
+</category>
+
+<!--    4P: Qué fecha será dentro de una semana. -->
+
+<!--    5P: Qué fecha será el próximo [Lunes Martes ... Domingo] -->
+</aiml>

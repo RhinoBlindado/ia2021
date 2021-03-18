@@ -23,29 +23,117 @@
 
 <!--        Reglas derivadas -->
 <category>
-    <pattern>^ [estacion epoca] ^ [estamos actual] ^</pattern>
+    <pattern>^ [estacion epoca temporada] ^ [estamos actual] ^</pattern>
     <template><srai>ESTACION</srai></template>
 </category>
 
 <category>
-    <pattern>^ estamos ^ estacion ^</pattern>
+    <pattern>^ estamos ^ [estacion epoca temporada] ^</pattern>
     <template><srai>ESTACION</srai></template>
 </category>
 
 <!--    2P: En qué fase del día estamos. -->
+<!--        Regla principal -->
 <category>
-    <pattern> </pattern>
+    <pattern>FASE DIA</pattern>
+    <template>
+        <random>
+            <li>La fase del dia actual es de <lowercase><srai>DAY PHASE</srai></lowercase>.</li>
+            <li>Estamos de <lowercase><srai>DAY PHASE</srai></lowercase>, estimado humano.</li>
+        </random>
+    </template>
+</category>
 
+<!--        Reglas derivadas -->
+<category>
+    <pattern>^ fase ^ dia ^</pattern>
+    <template>
+        <srai>FASE DIA</srai>
+    </template>
 </category>
 
 <!--    3P: Qué día de la semana es <hoy/manyana/pasado manyana>. -->
 <!--        Regla Principal -->
 <category>
     <pattern>DIA SEMANA *</pattern>
-    <template> </template>
+    <template> 
+        <think>
+            <set var="DAY"><star/></set>
+        </think>
+
+        <condition var ="DAY">
+
+            <li value="hoy"> 
+               <sentence> El dia de hoy es <srai>DAY</srai>.</sentence>
+            </li>
+
+            <li value="manyana">
+                <sentence>Manyana sera <srai>TOMORROW</srai>.</sentence>
+            </li>
+
+            <li value="pasado manyana">
+                <sentence>Pasado manyana sera el dia <srai>DAY AFTER TOMORROW</srai>.</sentence>
+            </li>
+            <li>
+                <sentence>No lo se, lo siento.</sentence>
+            </li>
+        </condition>
+    </template>
+</category>
+
+<!--        Reglas auxiliares -->
+<category>
+    <pattern>^ (que) dia [es sera será] * ^</pattern>
+    <template>
+        <srai> DIA SEMANA <star index="2"/></srai>
+    </template>
+</category>
+
+<category>
+    <pattern>^ (que) dia [es sera será] pasado manyana</pattern>
+    <template>
+        <srai> DIA SEMANA pasado manyana</srai>
+    </template>
 </category>
 
 <!--    4P: Qué fecha será dentro de una semana. -->
+<!--        Regla Principal -->
+<category>
+    <pattern>FECHA SEMANA PROXIMA</pattern>
+    <template>
+        <sentence>En una semana sera <srai>DATE IN 7 DAYS</srai></sentence>
+    </template>
+</category>
+
+<!--        Reglas auxiliares -->
+<category>
+    <pattern>^ fecha sera (dentro) ^  una semana ^</pattern>
+    <template>
+        <srai>FECHA SEMANA PROXIMA</srai>
+    </template>
+</category>
 
 <!--    5P: Qué fecha será el próximo [Lunes Martes ... Domingo] -->
+<!--        Regla Principal -->
+<category>
+    <pattern>FECHA PROXIMO *</pattern>
+    <template>
+        <sentence>La fecha del proximo <lowercase><star/></lowercase> va a ser <srai>DATE ON <star/></srai>.</sentence>
+    </template>
+</category>
+<!--        Reglas auxiliares -->
+<category>
+    <pattern> ^ fecha sera ^ proximo <set>weekday_es</set> ^</pattern>
+    <template>
+        <srai>FECHA PROXIMO <star index="3"/></srai>
+    </template>
+</category>
+
+<category>
+    <pattern> ^ fecha sera ^ proximo *</pattern>
+    <template>
+        <sentence>Lo siento, pero <star index="3"/> no es un dia.</sentence>
+    </template>
+</category>
+
 </aiml>

@@ -8,10 +8,77 @@
 -->
 
 <!-- NIVEL 1 -->
-<!--    XXXXXXXXXXX -->
-<!--        Regla principal -->
+<!--    1. Escribir las reglas necesarias para poder realizar las siguientes consultas dado un día representado como "dd de MMMMMMMMM del yy"-->
 
-<!--        Reglas derivadas -->
+<!--        a. informar sobre si el día está libre o no -->
+<!--            Regla principal -->
+<category>
+    <pattern>LIBRE * * *</pattern>
+    <template>
+
+        <think>
+            <set var="daySlots">
+                <srai>SUBLIST FROM 9 TO 21 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
+            </set>
+
+            <set var="freeSlotFound">
+                <srai>FINDITEM LIBRE IN <get var="daySlots"/></srai>
+            </set>
+        </think>
+
+        <condition var="freeSlotFound">
+            <li value="0">NO</li>
+            <li><sentence>SI</sentence></li>
+        </condition>
+
+    </template>
+</category>
+<!--            Reglas auxiliares -->
+
+<!--        b. Informar de las franjas libres en un día-->
+<!--            Regla principal -->
+<category>
+    <pattern>HORASLIBRES * * *</pattern>
+    <template>
+        <think>
+            <set var="daySlots">
+                <srai>SUBLIST FROM 9 TO 21 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
+            </set>
+
+            <set var="i">8</set>
+            <set var="output">8</set>
+
+        </think>
+    </template>
+</category>
+
+<!--            Reglas auxiliares -->
+
+<category>
+<pattern>Cuenta hasta <set>number</set></pattern>
+    <template>
+        <think>
+            <set var="contador">1</set>
+            <set var="salida">1</set>
+        </think>
+    <condition var="contador">
+        <li><value><star/></value><get var="salida"/></li>
+    <li>
+        <think>
+            <set var="contador">
+                <map name="successor"><get var="contador"/></map>
+            </set>
+            <condition var="contador">
+                <li value="3"> <set var="salida"><get var="salida"/> GOTTEM</set></li>
+                <li><set var="salida"><get var="salida"/> <get var="contador"/></set></li>
+            </condition>
+        </think>
+        <loop/>
+    </li>
+    </condition>
+    </template>
+ç</category>
+ 
 
 
 </aiml>

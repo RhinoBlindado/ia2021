@@ -21,7 +21,7 @@
     </template>
 </category>
 
-<!--        Reglas derivadas -->
+<!--        Reglas auxiliares -->
 <category>
     <pattern>^ [estacion epoca temporada] ^ [estamos actual] ^</pattern>
     <template><srai>ESTACION</srai></template>
@@ -44,7 +44,7 @@
     </template>
 </category>
 
-<!--        Reglas derivadas -->
+<!--        Reglas auxiliares -->
 <category>
     <pattern>^ fase ^ dia ^</pattern>
     <template>
@@ -121,6 +121,7 @@
         <sentence>La fecha del proximo <lowercase><star/></lowercase> va a ser <srai>DATE ON <star/></srai>.</sentence>
     </template>
 </category>
+
 <!--        Reglas auxiliares -->
 <category>
     <pattern> ^ fecha sera ^ proximo <set>weekday_es</set> ^</pattern>

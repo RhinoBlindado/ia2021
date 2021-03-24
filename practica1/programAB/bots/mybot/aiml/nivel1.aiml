@@ -11,7 +11,6 @@
 <!--    1. Escribir las reglas necesarias para poder realizar las siguientes consultas dado un día representado como "dd de MMMMMMMMM del yy"-->
 
 <!--        a. informar sobre si el día está libre o no -->
-<!--            Regla principal -->
 <category>
     <pattern>LIBRE * de * del *</pattern>
     <template>
@@ -33,10 +32,8 @@
 
     </template>
 </category>
-<!--            Reglas auxiliares -->
 
 <!--        b. Informar de las franjas libres en un día-->
-<!--            Regla principal -->
 <category>
     <pattern>HORASLIBRES * de * del *</pattern>
     <template>
@@ -98,16 +95,13 @@
     </template>
 </category>
 
-<!--            Reglas auxiliares -->
-
 <!--        c. Informar de las franjas libres por la mañana en un día -->
-<!--            Regla principal -->
 <category>
     <pattern>HLMANYANA * de * del *</pattern>
     <template>
         <think>
             <set var="daySlots">
-                <srai>SUBLIST FROM 9 TO 14 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
+                <srai>SUBLIST FROM 9 TO 13 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
             </set>
 
             <set var="endOfList">0</set>
@@ -161,16 +155,14 @@
         </condition>
     </template>
 </category>
-<!--            Reglas derivadas -->
 
 <!--        d. Informar de las franjas libres por la tarde en un día  -->
-<!--            Regla principal -->
 <category>
     <pattern>HLTARDE * de * del *</pattern>
     <template>
         <think>
             <set var="daySlots">
-                <srai>SUBLIST FROM 15 TO 21 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
+                <srai>SUBLIST FROM 14 TO 21 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
             </set>
 
             <set var="endOfList">0</set>
@@ -224,6 +216,39 @@
         </condition>
     </template>
 </category>
-<!--            Reglas derivadas -->
 
+<!--    2. Reglas conversacionales -->
+<!--        Pedir una cita el dia DD de MMMMMM del AA-->
+<category>
+    <pattern>^ cita ^ <set>number</set> de <set>month_es</set> del <set>number</set> ^</pattern>
+    <template>
+        Entendido.
+        <think>
+            <set var="checkDate">
+                <srai>LIBRE <star index="3"/> de <star index="4"/> del <star index="5"/></srai>
+            </set>
+            <set var="output"></set>
+        </think>
+        <condition var="checkDate">
+            <li value="SI">
+                <set var="morningHours">
+                    <srai>HLMANYANA <star index="3"/> de <star index="4"/> del <star index="5"/></srai>
+                </set>
+                <set var="afterNoonHours">
+                    <srai>HLTARDE <star index="3"/> de <star index="4"/> del <star index="5"/></srai>
+                </set>
+
+                <condition var="morningHours">
+                    <li value="EMPTYLIST">
+                        <set
+                    </li>
+                </condition>
+
+            </li>
+            <li>
+                <sentence>No hay huecos libres en este día. ¿Desea otro dia?</sentence>
+            </li>
+        </condition>
+    </template>
+</category>
 </aiml>

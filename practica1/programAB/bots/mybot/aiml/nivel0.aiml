@@ -124,7 +124,7 @@
 
 <!--        Reglas auxiliares -->
 <category>
-    <pattern> ^ fecha sera ^ proximo <set>weekday_es</set> ^</pattern>
+    <pattern> ^ fecha [es sera] ^ proximo <set>weekday_es</set> ^</pattern>
     <template>
         <srai>FECHA PROXIMO <star index="3"/></srai>
     </template>

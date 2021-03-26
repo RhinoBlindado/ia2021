@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+<!--
+    Inteligencia Artificial 
+    Practica 1
+    Autor: Valentino Lugli
+    Fecha: Marzo, 2021
+-->
+
+<!-- NIVEL 2 -->
+<!-- a. Informar del estado de un día especificado con <ESPECIFICA DIA> -->
+<category>
+    <pattern>LIBRE HOY ^</pattern>
+    <template>
+        <think>
+            <set var="completeDay">
+                <srai> DATE </srai>
+            </set>
+            <set var="remainder">
+                <srai> REMAIN <get var="completeDay"/></srai>
+            </set>
+            <set var="day">
+                <srai> TOP <get var="completeDay"/></srai>
+            </set>
+
+            <set var="month">
+                <srai> TOP <get var="remainder"/></srai>
+            </set>
+        </think>
+            <srai>LIBRE <get var="day"/> de <get var="month"/> del 21</srai>
+    </template>
+</category>
+
+<category>
+    <pattern>LIBRE MANYANA ^</pattern>
+    <template>
+        <think>
+            <set var="completeDay">
+                <srai> DATE IN 1 DAYS</srai>
+            </set>
+            <set var="remainder">
+                <srai> REMAIN <get var="completeDay"/></srai>
+            </set>
+            <set var="day">
+                <srai> TOP <get var="completeDay"/></srai>
+            </set>
+
+            <set var="month">
+                <srai> TOP <get var="remainder"/></srai>
+            </set>
+        </think>
+            <srai>LIBRE <get var="day"/> de <get var="month"/> del 21</srai>
+    </template>
+</category>
+
+<category>
+    <pattern>LIBRE PASADO MANYANA ^</pattern>
+    <template>
+        <think>
+            <set var="completeDay">
+                <srai> DATE IN 2 DAYS</srai>
+            </set>
+            <set var="remainder">
+                <srai> REMAIN <get var="completeDay"/></srai>
+            </set>
+            <set var="day">
+                <srai> TOP <get var="completeDay"/></srai>
+            </set>
+
+            <set var="month">
+                <srai> TOP <get var="remainder"/></srai>
+            </set>
+        </think>
+            <srai>LIBRE <get var="day"/> de <get var="month"/> del 21</srai>
+    </template>
+</category>
+
+<category>
+    <pattern>LIBRE [PROXIMO SIGUIENTE] <set>weekday_es</set> ^</pattern>
+    <template>
+        <think>
+            <set var="completeDay">
+                <srai> DATE ON <star/> </srai>
+            </set>
+            <set var="remainder">
+                <srai> REMAIN <get var="completeDay"/></srai>
+            </set>
+            <set var="day">
+                <srai> TOP <get var="completeDay"/></srai>
+            </set>
+
+            <set var="month">
+                <srai> TOP <get var="remainder"/></srai>
+            </set>
+        </think>
+            <srai>LIBRE <get var="day"/> de <get var="month"/> del 21</srai>
+    </template>
+</category>
+
+<!-- b. Informar de las franjas libres en un día especificado con <ESPECIFICA DIA> -->
+
+<!-- c. Informar de las franjas libres por la mañana en un día especificado con <ESPECIFICA DIA> -->
+
+<!-- d. Informar de las franjas libres por la tarde en un día especificado con <ESPECIFICA DIA> -->
+
+<!-- e. Informar de las franjas libres a partir de una hora dada en un día especificado con <ESPECIFICA DIA> -->
+</aiml>

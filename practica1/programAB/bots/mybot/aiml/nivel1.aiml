@@ -12,7 +12,7 @@
 
 <!--        a. informar sobre si el día está libre o no -->
 <category>
-    <pattern>LIBRE * de * del *</pattern>
+    <pattern>LIBRE * de * del * ^</pattern>
     <template>
 
         <think>

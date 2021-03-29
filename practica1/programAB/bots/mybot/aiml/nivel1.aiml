@@ -1,10 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
 <!--
-    Inteligencia Artificial 
-    Practica 1
-    Autor: Valentino Lugli
+    [CASTELLANO]
+
+    Practica 1 - Agentes Conversacionales
+    Asignatura: Inteligencia Artificial 
+    Autor: Valentino Lugli (Github: @RhinoBlindado)
     Fecha: Marzo, 2021
+-->
+<!--
+    [ENGLISH]
+
+    Practice 1 - Conversational Agents
+    Course: Artificial Intelligence
+    Author: Valentino Lugli (Github: @RhinoBlindado)
+    Date: March, 2021
 -->
 
 <!-- NIVEL 1 -->

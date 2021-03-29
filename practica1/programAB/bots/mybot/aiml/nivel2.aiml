@@ -1,55 +1,58 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <aiml version="2.0">
 <!--
-    Inteligencia Artificial 
-    Practica 1
-    Autor: Valentino Lugli
+    [CASTELLANO]
+
+    Practica 1 - Agentes Conversacionales
+    Asignatura: Inteligencia Artificial 
+    Autor: Valentino Lugli (Github: @RhinoBlindado)
     Fecha: Marzo, 2021
+-->
+<!--
+    [ENGLISH]
+
+    Practice 1 - Conversational Agents
+    Course: Artificial Intelligence
+    Author: Valentino Lugli (Github: @RhinoBlindado)
+    Date: March, 2021
 -->
 
 <!-- NIVEL 2 -->
 <!-- a. Informar del estado de un día especificado con <ESPECIFICA DIA> -->
 <category>
-    <pattern>LIBRE HOY ^</pattern>
+    <pattern>LIBRE * ^</pattern>
     <template>
         <think>
-            <set var="completeDay">
-                <srai> DATE </srai>
+            <set var="day">
+                <star/>
             </set>
+            <condition var="day">
+                <li value="HOY">
+                    <set var="completeDay">
+                        <srai> DATE </srai>
+                    </set>
+                </li>
+                <li value="MANYANA">
+                    <set var="completeDay">
+                        <srai> DATE IN 1 DAYS</srai>
+                    </set>
+                </li>
+            </condition>
+
             <set var="remainder">
                 <srai> REMAIN <get var="completeDay"/></srai>
             </set>
             <set var="day">
                 <srai> TOP <get var="completeDay"/></srai>
             </set>
-
             <set var="month">
                 <srai> TOP <get var="remainder"/></srai>
             </set>
-        </think>
-            <srai>LIBRE <get var="day"/> de <get var="month"/> del 21</srai>
-    </template>
-</category>
-
-<category>
-    <pattern>LIBRE MANYANA ^</pattern>
-    <template>
-        <think>
-            <set var="completeDay">
-                <srai> DATE IN 1 DAYS</srai>
-            </set>
-            <set var="remainder">
-                <srai> REMAIN <get var="completeDay"/></srai>
-            </set>
-            <set var="day">
-                <srai> TOP <get var="completeDay"/></srai>
-            </set>
-
-            <set var="month">
-                <srai> TOP <get var="remainder"/></srai>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
             </set>
         </think>
-            <srai>LIBRE <get var="day"/> de <get var="month"/> del 21</srai>
+        <srai>LIBRE <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
     </template>
 </category>
 
@@ -66,12 +69,14 @@
             <set var="day">
                 <srai> TOP <get var="completeDay"/></srai>
             </set>
-
             <set var="month">
                 <srai> TOP <get var="remainder"/></srai>
             </set>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
         </think>
-            <srai>LIBRE <get var="day"/> de <get var="month"/> del 21</srai>
+        <srai>LIBRE <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
     </template>
 </category>
 
@@ -92,58 +97,53 @@
             <set var="month">
                 <srai> TOP <get var="remainder"/></srai>
             </set>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
         </think>
-            <srai>LIBRE <get var="day"/> de <get var="month"/> del 21</srai>
+        <srai>LIBRE <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
     </template>
 </category>
 
 <!-- b. Informar de las franjas libres en un día especificado con <ESPECIFICA DIA> -->
 <category>
-    <pattern>HORASLIBRES HOY ^</pattern>
+    <pattern>HORASLIBRES * </pattern>
     <template>
         <think>
-            <set var="completeDay">
-                <srai> DATE </srai>
+            <set var="day">
+                <star/>
             </set>
+            <condition var="day">
+                <li value="HOY">
+                    <set var="completeDay">
+                        <srai> DATE </srai>
+                    </set>
+                </li>                
+                <li value="MANYANA">
+                    <set var="completeDay">
+                        <srai> DATE IN 1 DAYS</srai>
+                    </set>
+                </li>
+            </condition>
             <set var="remainder">
                 <srai> REMAIN <get var="completeDay"/></srai>
             </set>
             <set var="day">
                 <srai> TOP <get var="completeDay"/></srai>
             </set>
-
             <set var="month">
                 <srai> TOP <get var="remainder"/></srai>
             </set>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
         </think>
-            <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del 21</srai>
+        <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
     </template>
 </category>
 
 <category>
-    <pattern>HORASLIBRES MANYANA ^</pattern>
-    <template>
-        <think>
-            <set var="completeDay">
-                <srai> DATE IN 1 DAYS</srai>
-            </set>
-            <set var="remainder">
-                <srai> REMAIN <get var="completeDay"/></srai>
-            </set>
-            <set var="day">
-                <srai> TOP <get var="completeDay"/></srai>
-            </set>
-
-            <set var="month">
-                <srai> TOP <get var="remainder"/></srai>
-            </set>
-        </think>
-            <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del 21</srai>
-    </template>
-</category>
-
-<category>
-    <pattern>HORASLIBRES PASADO MANYANA ^</pattern>
+    <pattern>HORASLIBRES PASADO MANYANA</pattern>
     <template>
         <think>
             <set var="completeDay">
@@ -155,17 +155,19 @@
             <set var="day">
                 <srai> TOP <get var="completeDay"/></srai>
             </set>
-
             <set var="month">
                 <srai> TOP <get var="remainder"/></srai>
             </set>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
         </think>
-            <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del 21</srai>
+        <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
     </template>
 </category>
 
 <category>
-    <pattern>HORASLIBRES [PROXIMO SIGUIENTE] <set>weekday_es</set> ^</pattern>
+    <pattern>HORASLIBRES [PROXIMO SIGUIENTE] <set>weekday_es</set></pattern>
     <template>
         <think>
             <set var="completeDay">
@@ -177,125 +179,57 @@
             <set var="day">
                 <srai> TOP <get var="completeDay"/></srai>
             </set>
-
             <set var="month">
                 <srai> TOP <get var="remainder"/></srai>
             </set>
+               <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
         </think>
-            <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del 21</srai>
+        <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
     </template>
 </category>
 
 <!-- c. Informar de las franjas libres por la mañana en un día especificado con <ESPECIFICA DIA> -->
-<category>
-    <pattern>HORASLIBRES * DE * DEL * POR LA MANYANA</pattern>
-    <template>
-        <srai>HLMANYANA <star/> de <star index="2"/> del <star index="3"/></srai>
-    </template>
-</category>
-
-<category>
-    <pattern>HORASLIBRES HOY POR LA MANYANA</pattern>
-    <template>
-        <think>
-            <set var="completeDay">
-                <srai> DATE </srai>
-            </set>
-            <set var="remainder">
-                <srai> REMAIN <get var="completeDay"/></srai>
-            </set>
-            <set var="day">
-                <srai> TOP <get var="completeDay"/></srai>
-            </set>
-
-            <set var="month">
-                <srai> TOP <get var="remainder"/></srai>
-            </set>
-        </think>
-            <srai>HLMANYANA <get var="day"/> de <get var="month"/> del 21</srai>
-    </template>
-</category>
-
-<category>
-    <pattern>HORASLIBRES MANYANA POR LA MANYANA</pattern>
-    <template>
-        <think>
-            <set var="completeDay">
-                <srai> DATE IN 1 DAYS</srai>
-            </set>
-            <set var="remainder">
-                <srai> REMAIN <get var="completeDay"/></srai>
-            </set>
-            <set var="day">
-                <srai> TOP <get var="completeDay"/></srai>
-            </set>
-
-            <set var="month">
-                <srai> TOP <get var="remainder"/></srai>
-            </set>
-        </think>
-            <srai>HLMANYANA <get var="day"/> de <get var="month"/> del 21</srai>
-    </template>
-</category>
-
-<category>
-    <pattern>HORASLIBRES PASADO MANYANA POR LA TARDE</pattern>
-    <template>
-        <think>
-            <set var="completeDay">
-                <srai> DATE IN 2 DAYS</srai>
-            </set>
-            <set var="remainder">
-                <srai> REMAIN <get var="completeDay"/></srai>
-            </set>
-            <set var="day">
-                <srai> TOP <get var="completeDay"/></srai>
-            </set>
-
-            <set var="month">
-                <srai> TOP <get var="remainder"/></srai>
-            </set>
-        </think>
-            <srai>HLMANYANA <get var="day"/> de <get var="month"/> del 21</srai>
-    </template>
-</category>
-
-<category>
-    <pattern>HORASLIBRES [PROXIMO SIGUIENTE] <set>weekday_es</set> POR LA MANYANA</pattern>
-    <template>
-        <think>
-            <set var="completeDay">
-                <srai> DATE ON <star/> </srai>
-            </set>
-            <set var="remainder">
-                <srai> REMAIN <get var="completeDay"/></srai>
-            </set>
-            <set var="day">
-                <srai> TOP <get var="completeDay"/></srai>
-            </set>
-            <set var="month">
-                <srai> TOP <get var="remainder"/></srai>
-            </set>
-        </think>
-            <srai>HLMANYANA <get var="day"/> de <get var="month"/> del 21</srai>
-    </template>
-</category>
-
 <!-- d. Informar de las franjas libres por la tarde en un día especificado con <ESPECIFICA DIA> -->
 <category>
-    <pattern>HORASLIBRES * DE * DEL * POR LA TARDE</pattern>
+    <pattern>HORASLIBRES <set>number</set> DE <set>month_es</set> DEL <set>number</set> (POR LA) *</pattern>
     <template>
-        <srai>HLTARDE <star/> de <star index="2"/> del <star index="3"/></srai>
+        <think>
+            <set var="hourOfDay">
+                <star index="4"/>
+            </set>
+        </think>
+        <condition var="hourOfDay">
+            <li value="MANYANA">
+                 <srai>HLMANYANA <star/> de <star index="2"/> del <star index="3"/></srai>
+            </li>
+            <li value="TARDE">
+                 <srai>HLTARDE<star/> de <star index="2"/> del <star index="3"/></srai>
+            </li>
+        </condition>
     </template>
 </category>
 
 <category>
-    <pattern>HORASLIBRES HOY POR LA TARDE</pattern>
+    <pattern>HORASLIBRES * (POR LA) *</pattern>
     <template>
         <think>
-            <set var="completeDay">
-                <srai> DATE </srai>
+            <set var="day">
+                <star/>
             </set>
+            <condition var="day">
+                <li value="HOY">
+                    <set var="completeDay">
+                        <srai> DATE </srai>
+                    </set>
+                </li>                
+                <li value="MANYANA">
+                    <set var="completeDay">
+                        <srai> DATE IN 1 DAYS</srai>
+                    </set>
+                </li>
+            </condition>
             <set var="remainder">
                 <srai> REMAIN <get var="completeDay"/></srai>
             </set>
@@ -305,35 +239,26 @@
             <set var="month">
                 <srai> TOP <get var="remainder"/></srai>
             </set>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
+            <set var="hourOfDay">
+                <star index="2"/>
+            </set>
         </think>
-            <srai>HLTARDE <get var="day"/> de <get var="month"/> del 21</srai>
+        <condition var="hourOfDay">
+            <li value="MANYANA">
+                 <srai>HLMANYANA <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
+            </li>
+            <li value="TARDE">
+                 <srai>HLTARDE <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
+            </li>
+        </condition>
     </template>
 </category>
 
 <category>
-    <pattern>HORASLIBRES MANYANA POR LA TARDE</pattern>
-    <template>
-        <think>
-            <set var="completeDay">
-                <srai> DATE IN 1 DAYS</srai>
-            </set>
-            <set var="remainder">
-                <srai> REMAIN <get var="completeDay"/></srai>
-            </set>
-            <set var="day">
-                <srai> TOP <get var="completeDay"/></srai>
-            </set>
-
-            <set var="month">
-                <srai> TOP <get var="remainder"/></srai>
-            </set>
-        </think>
-            <srai>HLTARDE <get var="day"/> de <get var="month"/> del 21</srai>
-    </template>
-</category>
-
-<category>
-    <pattern>HORASLIBRES PASADO MANYANA POR LA TARDE</pattern>
+    <pattern>HORASLIBRES PASADO MANYANA (POR LA) *</pattern>
     <template>
         <think>
             <set var="completeDay">
@@ -345,17 +270,29 @@
             <set var="day">
                 <srai> TOP <get var="completeDay"/></srai>
             </set>
-
             <set var="month">
                 <srai> TOP <get var="remainder"/></srai>
             </set>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
+            <set var="hourOfDay">
+                <star/>
+            </set>
         </think>
-            <srai>HLTARDE <get var="day"/> de <get var="month"/> del 21</srai>
+        <condition var="hourOfDay">
+            <li value="MANYANA">
+                 <srai>HLMANYANA <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
+            </li>
+            <li value="TARDE">
+                 <srai>HLTARDE <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
+            </li>
+        </condition>
     </template>
 </category>
 
 <category>
-    <pattern>HORASLIBRES [PROXIMO SIGUIENTE] <set>weekday_es</set> POR LA TARDE</pattern>
+    <pattern>HORASLIBRES [PROXIMO SIGUIENTE] <set>weekday_es</set> POR LA *</pattern>
     <template>
         <think>
             <set var="completeDay">
@@ -370,24 +307,205 @@
             <set var="month">
                 <srai> TOP <get var="remainder"/></srai>
             </set>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
+            <set var="hourOfDay">
+                <star index="2"/>
+            </set>
         </think>
-            <srai>HLTARDE <get var="day"/> de <get var="month"/> del 21</srai>
+        <condition var="hourOfDay">
+            <li value="MANYANA">
+                 <srai>HLMANYANA <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
+            </li>
+            <li value="TARDE">
+                 <srai>HLTARDE <get var="day"/> de <get var="month"/> del <get var="year"/></srai>
+            </li>
+        </condition>
     </template>
 </category>
 
 <!-- e. Informar de las franjas libres a partir de una hora dada en un día especificado con <ESPECIFICA DIA> -->
 <category>
-    <pattern>HORASLIBRES * DE * DEL * A PARTIR DE LAS *</pattern>
+    <pattern>HORASLIBRES <set>number</set> DE <set>month_es</set> DEL <set>number</set> A PARTIR DE LAS *</pattern>
     <template>
-        <set var="list">
-            <srai>HORASLIBRES <star/> de <star index="2"/> del <star index="3"/></srai>
-        </set>
-        <set var="targetHour">
-            <star index="4"/>
-        </set>
-        <set var="endOfLoop">0</set>
-        
+        <think>
+            <set var="targetHour"> 
+                <srai> ORDINAL <star index="4"/></srai>
+            </set>
+
+            <set var="count">
+                <srai> COUNT <srai> DELETREA <star/> </srai> </srai>
+            </set>
+
+            <condition var="count">
+                <li value="1">
+                    <set var="day">0<star/></set>
+                </li>
+                <li>
+                    <set var="day"><star/></set>
+                </li>
+            </condition>
+
+            <set var="daySlots">
+                <srai>SUBLIST FROM <get var="targetHour"/> TO 21 OF <srai>LIST OF DAY <get var="day"/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
+            </set>
+            <set var="endOfList">0</set>
+            <set var="i"><srai> MINUS <srai> MINUS <get var="targetHour"/> 1 </srai> 1 </srai> </set>
+            <set var="output"></set>
+
+            <condition var="endOfList">
+                <li value="1"></li>
+                <li>
+                    <!-- i++; -->
+                    <set var="i"><map name="successor"><get var="i"/></map></set>
+
+                    <!-- front = daySlots.front(); -->
+                    <set var="front">
+                        <srai>TOP <get var="daySlots"/></srai>
+                    </set>
+
+                    <set var="count">
+                        <srai>COUNT <srai> DELETREA <get var="i"/> </srai> </srai>
+                    </set>
+
+                    <condition var="count">
+                        <li value="1">
+                            <set var="i">0<get var="i"/></set>
+                        </li>
+                    </condition>
+
+                    <!-- if(front == "LIBRE") output +=" " + i +":00";-->
+                    <condition var="front">
+                        <li value="LIBRE">
+                            <set var="output"><get var="output"/> <get var="i"/>:00</set>
+                        </li>
+                    </condition>
+
+                    <!-- daySlots.pop_front(); -->
+                    <set var="daySlots">
+                        <srai>REMAIN <get var="daySlots"/></srai>
+                    </set>
+
+                    <!-- if(daySlots.empty()) endOfList = 1;-->
+                    <condition var="daySlots">
+                        <li value="$">
+                            <set var="endOfList">1</set>
+                        </li>
+                    </condition>
+                <loop/>
+                </li>
+            </condition>
+
+             <set var="isEmpty">
+                <srai>COUNT <get var="output"/></srai>
+            </set>
+
+        </think>
+            <condition var="isEmpty">
+                <li value="0">
+                    <sentence>EMPTYLIST</sentence>
+                </li>
+                <li><sentence><get var="output"/></sentence></li>
+            </condition>
     </template>
 </category>
+
+<category>
+    <pattern>HORASLIBRES * A PARTIR DE LAS *</pattern>
+    <template>
+        <think>
+            <set var="day">
+                <star/>
+            </set>
+            <condition var="day">
+                <li value="HOY">
+                    <set var="completeDay">
+                        <srai> DATE </srai>
+                    </set>
+                </li>                
+                <li value="MANYANA">
+                    <set var="completeDay">
+                        <srai> DATE IN 1 DAYS</srai>
+                    </set>
+                </li>
+            </condition>
+            <set var="hour">
+                <star index="2"/>
+            </set>
+            <set var="remainder">
+                <srai> REMAIN <get var="completeDay"/></srai>
+            </set>
+            <set var="day">
+                <srai> TOP <get var="completeDay"/></srai>
+            </set>
+            <set var="month">
+                <srai> TOP <get var="remainder"/></srai>
+            </set>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
+        </think>
+        <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del <get var="year"/> A PARTIR DE LAS <get var="hour"/></srai>
+    </template>
+</category>
+
+<category>
+    <pattern>HORASLIBRES PASADO MANYANA A PARTIR DE LAS *</pattern>
+    <template>
+        <think>
+            <set var="completeDay">
+                <srai> DATE IN 2 DAYS</srai>
+            </set>
+            <set var="remainder">
+                <srai> REMAIN <get var="completeDay"/></srai>
+            </set>
+            <set var="day">
+                <srai> TOP <get var="completeDay"/></srai>
+            </set>
+            <set var="month">
+                <srai> TOP <get var="remainder"/></srai>
+            </set>
+            <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
+            <set var="hour">
+                <star/>
+            </set>
+        </think>
+        <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del <get var="year"/> A PARTIR DE LAS <get var="hour"/></srai>
+    </template>
+</category>
+
+<category>
+    <pattern>HORASLIBRES [PROXIMO SIGUIENTE] <set>weekday_es</set> A PARTIR DE LAS *</pattern>
+    <template>
+        <think>
+            <set var="completeDay">
+                <srai> DATE ON <star/> </srai>
+            </set>
+            <set var="remainder">
+                <srai> REMAIN <get var="completeDay"/></srai>
+            </set>
+            <set var="day">
+                <srai> TOP <get var="completeDay"/></srai>
+            </set>
+            <set var="month">
+                <srai> TOP <get var="remainder"/></srai>
+            </set>
+               <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
+            <set var="hour">
+                <star index="2"/>
+            </set>
+        </think>
+        <srai>HORASLIBRES <get var="day"/> de <get var="month"/> del <get var="year"/> A PARTIR DE LAS <get var="hour"/></srai>
+    </template>
+</category>
+
+
+<!--    2. Reglas conversacionales -->
+<!--        Pedir una cita al estilo <ESPECIFICA DIA> -->
 
 </aiml>

@@ -24,10 +24,22 @@
 <category>
     <pattern>LIBRE * de * del * ^</pattern>
     <template>
-
         <think>
+            <set var="count">
+                <srai> COUNT <srai> DELETREA <star/> </srai> </srai>
+            </set>
+
+            <condition var="count">
+                <li value="1">
+                    <set var="day">0<star/></set>
+                </li>
+                <li>
+                    <set var="day"><star/></set>
+                </li>
+            </condition>
+            
             <set var="daySlots">
-                <srai>SUBLIST FROM 9 TO 21 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
+                <srai>SUBLIST FROM 9 TO 21 OF <srai>LIST OF DAY <get var="day"/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
             </set>
 
             <set var="freeSlotFound">
@@ -48,8 +60,21 @@
     <pattern>HORASLIBRES * de * del *</pattern>
     <template>
         <think>
+            <set var="count">
+                <srai> COUNT <srai> DELETREA <star/> </srai> </srai>
+            </set>
+
+            <condition var="count">
+                <li value="1">
+                    <set var="day">0<star/></set>
+                </li>
+                <li>
+                    <set var="day"><star/></set>
+                </li>
+            </condition>
+
             <set var="daySlots">
-                <srai>SUBLIST FROM 9 TO 21 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
+                <srai>SUBLIST FROM 9 TO 21 OF <srai>LIST OF DAY <get var="day"/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
             </set>
 
             <set var="endOfList">0</set>
@@ -120,8 +145,21 @@
     <pattern>HLMANYANA * de * del *</pattern>
     <template>
         <think>
+            <set var="count">
+                <srai> COUNT <srai> DELETREA <star/> </srai> </srai>
+            </set>
+
+            <condition var="count">
+                <li value="1">
+                    <set var="day">0<star/></set>
+                </li>
+                <li>
+                    <set var="day"><star/></set>
+                </li>
+            </condition>
+
             <set var="daySlots">
-                <srai>SUBLIST FROM 9 TO 13 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
+                <srai>SUBLIST FROM 9 TO 13 OF <srai>LIST OF DAY <get var="day"/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
             </set>
 
             <set var="endOfList">0</set>
@@ -181,8 +219,21 @@
     <pattern>HLTARDE * de * del *</pattern>
     <template>
         <think>
+            <set var="count">
+                <srai> COUNT <srai> DELETREA <star/> </srai> </srai>
+            </set>
+
+            <condition var="count">
+                <li value="1">
+                    <set var="day">0<star/></set>
+                </li>
+                <li>
+                    <set var="day"><star/></set>
+                </li>
+            </condition>
+
             <set var="daySlots">
-                <srai>SUBLIST FROM 14 TO 21 OF <srai>LIST OF DAY <star/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
+                <srai>SUBLIST FROM 14 TO 21 OF <srai>LIST OF DAY <get var="day"/>_<map name="monthStringToNumber"><star index="2"/></map>_<star index="3"/></srai></srai>
             </set>
 
             <set var="endOfList">0</set>
@@ -246,7 +297,7 @@
             <set var="checkDate">
                 <srai>LIBRE <star index="3"/> de <star index="4"/> del <star index="5"/></srai>
             </set>
-            <set var="output">Entendido. </set>
+            <set var="output">Entendido, </set>
 
             <condition var="checkDate">
                 <li value="SI">
@@ -265,12 +316,12 @@
 
                     <condition var="allDayFree">
                         <li value="13">
-                            <set var="output"> <get var="output"/> Tengo todo el dia libre</set>
+                            <set var="output"> <get var="output"/> tengo todo el dia libre</set>
                         </li>
                         <li>
                             <condition var="morningHours">
                                 <li value="EMPTYLIST">
-                                    <set var="output"> <get var="output"/> Tengo la manyana ocupada,</set>
+                                    <set var="output"> <get var="output"/> tengo la mañana ocupada,</set>
                                 </li>
                                 <li>
                                     <set var="output"><get var="output"/> <srai>MORNING ANSWERS <get var="morningHours"/></srai></set>
@@ -282,7 +333,7 @@
                                     <set var="output"> <get var="output"/> y tengo toda la tarde ocupada.</set>
                                 </li>
                                 <li>
-                                    <set var="output"><get var="output"/> <srai>NOON ANSWERS <get var="afterNoonHours"/></srai></set>
+                                    <set var="output"><get var="output"/> y <srai>NOON ANSWERS <get var="afterNoonHours"/></srai></set>
                                 </li>
                             </condition>
                         </li>
@@ -307,11 +358,11 @@
             </set>
             <set var="return"></set>
             <condition var="count">
-                <li value="5"><set var="return"> Tengo la manyana libre, </set></li>
-                <li value="1"><set var="return"> En la manyana tengo a las <star/></set></li>
+                <li value="5"><set var="return"> tengo la toda la manñana libre, </set></li>
+                <li value="1"><set var="return"> en la mañana tengo a las <star/></set></li>
                 <li>
                     <set var="list"><star/></set>
-                    <set var="return"> En la manyana tengo las siguientes horas: </set>
+                    <set var="return"> en la mañana tengo las siguientes horas: </set>
                     <set var="endOfList">0</set>
                     <set var="i"><get var="count"/></set>
 
@@ -356,11 +407,11 @@
             </set>
             <set var="return"></set>
             <condition var="count">
-                <li value="8"><set var="return">y tengo la tarde libre, </set></li>
-                <li value="1"><set var="return">y en la tarde solo tengo libre a las <star/></set></li>
+                <li value="8"><set var="return"> tengo toda la tarde libre, </set></li>
+                <li value="1"><set var="return">  en la tarde solo tengo libre a las <star/></set></li>
                 <li>
                     <set var="list"><star/></set>
-                    <set var="return">y en la tarde tengo las siguientes horas: </set>
+                    <set var="return"> en la tarde tengo las siguientes horas: </set>
                     <set var="endOfList">0</set>
                     <set var="i"><get var="count"/></set>
 

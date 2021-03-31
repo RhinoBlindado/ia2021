@@ -339,9 +339,11 @@
                         </li>
                     </condition>
                     <set var="output"><get var="output"/> ¿Desea alguna hora en concreto?</set>
+                    <set name="topic">freeSlot</set>
                 </li>
                 <li>
                     <set var="output"> <get var="output"/> Tengo todo el dia ocupado ¿Quieres otro dia?</set>
+                    <set name="topic">allBusy</set>
                 </li>
             </condition>
         </think>
@@ -447,80 +449,143 @@
     </template>
 </category>
 
-<!--    Respuesta a pregunta de día ocupado -->
 <category>
-    <pattern>Si ^</pattern>
-    <that>* todo el dia ocupado *</that>
-    <template>Dime que otro dia quisieras hacer la cita</template>
-</category>
-
-<category>
-    <pattern>^ <set>number</set> de <set>month_es</set> del <set>number</set> ^ </pattern>
-    <that> * que otro dia quisieras hacer la cita</that>
-    <template>
-        <srai> CITA <star index="2"/> de <star index="3"/> del <star index="4"/></srai>
-    </template>
-</category>
-
-<category>
-    <pattern>No ^</pattern>
-    <that>* todo el dia ocupado *</that>
-    <template>
-    Entiendo, ¡hasta luego!.
-    </template>
-</category>
-
-
-<!-- Respuesta a dia libre -->
-<category>
-    <pattern>Si ^ a las * ^</pattern>
-    <that>* ALGUNA HORA EN CONCRETO</that>
+    <pattern>PRETTYHOURS *</pattern>
     <template>
         <think>
-            <set var="valid">
-                <srai>IS BUSY DAY <get name="currentDate"/> AT <star index="2"/></srai>
+            <set var="count">
+                <srai>COUNT <star/></srai>
             </set>
-            <condition var="valid">
-                <li value="TRUE">
-                    <set var="output">Lo siento, pero esta hora esta ocupada. Recuerda que los huecos que tengo son: <srai>HORASLIBRES <get name="currentDateHR"/></srai></set>
-                </li>
+            <set var="return"></set>
+            <condition var="count">
+                <li value="1"><set var="return"> <star/></set></li>
                 <li>
-                    <srai> MARK NOLIBRE AT <star index="2"/> ON <get name="currentDate"/></srai>
-                    <set var="output">Listo, ya tiene su cita asignada a las <star index="2"/> del <get name="currentDateHR"/>. ¿Quieres pedir otra cita?</set>
+                    <set var="list"><star/></set>
+                    <set var="endOfList">0</set>
+                    <set var="i"><get var="count"/></set>
+                    <condition var="endOfList">
+                        <li value="1"></li>
+                        <li>
+                            <set var="i"><srai>MINUS <get var="i"/> 1 </srai></set>
+
+                            <set var="front">
+                                <srai> TOP <get var="list"/> </srai>
+                            </set>
+
+                            <set var="list">
+                                <srai> REMAIN <get var="list"/> </srai>
+                            </set>
+
+                            <condition var="i">
+                                <li value="1">
+                                    <set var="endOfList">1</set>
+                                    <set var="return"><get var="return"/> <get var="front"/> y <get var="list"/></set>
+                                </li>
+                                <li>
+                                    <set var="return"><get var="return"/> <get var="front"/>, </set>
+                                </li>
+                            </condition>
+                        <loop/>
+                        </li>
+                    </condition>
                 </li>
             </condition>
         </think>
-        <get var="output"/>
+        <get var="return"/>
     </template>
 </category>
 
-<category>
-    <pattern> ^ me da igual ^</pattern>
-    <that>* ALGUNA HORA EN CONCRETO</that>
-    <template>
-        <think>
-            <set var="firstHour">
-                <srai> TOP <srai>HORASLIBRES <get name="currentDateHR"/></srai></srai>
-            </set>
-            <srai> MARK NOLIBRE AT <get var="firstHour"/> ON <get name="currentDate"/></srai>
-        </think>
-        <sentence>¡Bien! Le he puesto la cita para las <get var="firstHour"/> del <get name="currentDateHR"/>. ¿Quieres pedir otra cita?</sentence>
-    </template>
-</category>
+<!--    Respuesta a pregunta de día ocupado -->
+<topic name="allBusy">
+    <category>
+        <pattern>Si ^</pattern>
+        <that>* todo el dia ocupado *</that>
+        <template>Dime que otro dia quisieras hacer la cita</template>
+    </category>
 
-<category>
-    <pattern>Si ^ <set>number</set> de <set>month_es</set> del <set>number</set> ^</pattern>
-    <that> * PEDIR OTRA CITA</that>
-    <template>
-        <srai> CITA <star index="2"/> de <star index="3"/> del <star index="4"/></srai>
-    </template>
-</category>
+    <category>
+        <pattern>^ <set>number</set> de <set>month_es</set> del <set>number</set> ^ </pattern>
+        <that> * que otro dia quisieras hacer la cita</that>
+        <template>
+            <srai> CITA <star index="2"/> de <star index="3"/> del <star index="4"/></srai>
+        </template>
+    </category>
 
-<category>
-    <pattern>^ No ^</pattern>
-    <that> * PEDIR OTRA CITA</that>
-    <template>¡Vale! ¡Saludos!</template>
-</category>
+    <category>
+        <pattern>No ^</pattern>
+        <that>* todo el dia ocupado *</that>
+        <template>
+        Entiendo, ¡hasta luego!.
+        </template>
+    </category>
+</topic>
 
+<!-- Respuesta a dia libre -->
+<topic name="freeSlot">
+    <category>
+        <pattern>(Si) ^ a las * ^</pattern>
+        <that>* ALGUNA HORA EN CONCRETO</that>
+        <template>
+            <think>
+                <set var="item">
+                    <srai> FINDITEM <star index="2"/> IN <srai>HORASLIBRES <get name="currentDateHR"/></srai></srai>
+                </set>
+                
+                <condition var="item">
+                    <li value="0">
+                        <set var="valid">TRUE</set>
+                    </li>
+                    <li>
+                        <set var="valid">FALSE</set>
+                    </li>
+                </condition>
+
+                <condition var="valid">
+                    <li value="TRUE">
+                        <set var="output">Lo siento, pero esta hora esta ocupada. Recuerda que los huecos que tengo son: <srai>PRETTYHOURS <srai>HORASLIBRES <get name="currentDateHR"/></srai></srai></set>
+                    </li>
+                    <li>
+                        <srai> MARK NOLIBRE AT <star index="2"/> ON <get name="currentDate"/></srai>
+                        <set var="output">Listo, ya tiene su cita asignada a las <star index="2"/> del <get name="currentDateHR"/>. ¿Quieres pedir otra cita?</set>
+                    </li>
+                </condition>
+            </think>
+            <get var="output"/>
+        </template>
+    </category>
+
+    <category>
+        <pattern> ^ no ^</pattern>
+        <template> <srai> ME DA IGUAL </srai> </template>
+    </category>
+
+    <category>
+        <pattern> ^ me da igual ^</pattern>
+        <that>* ALGUNA HORA EN CONCRETO</that>
+        <template>
+            <think>
+                <set var="firstHour">
+                    <srai> TOP <srai>HORASLIBRES <get name="currentDateHR"/></srai></srai>
+                </set>
+                <srai> MARK NOLIBRE AT <get var="firstHour"/> ON <get name="currentDate"/></srai>
+            </think>
+            <sentence>¡Bien! Le he puesto la cita para las <get var="firstHour"/> del <get name="currentDateHR"/>. ¿Quieres pedir otra cita?</sentence>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ <set>number</set> de <set>month_es</set> del <set>number</set> ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+            <srai> CITA <star index="2"/> de <star index="3"/> del <star index="4"/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>^ No ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>¡Vale! ¡Saludos!</template>
+    </category>
+</topic>
 
 </aiml>

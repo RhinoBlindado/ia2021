@@ -1,0 +1,13 @@
+9:ocho
+10:nueve
+11:diez
+12:once
+13:doce
+14:una
+15:dos
+16:tres
+17:cuatro
+18:cinco
+19:seis
+20:siete
+21:ocho

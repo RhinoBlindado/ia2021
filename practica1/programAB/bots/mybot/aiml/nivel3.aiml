@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<aiml version="2.0">
+<!--
+    [CASTELLANO]
+
+    Practica 1 - Agentes Conversacionales
+    Asignatura: Inteligencia Artificial 
+    Autor: Valentino Lugli (Github: @RhinoBlindado)
+    Fecha: Marzo, 2021
+-->
+<!--
+    [ENGLISH]
+
+    Practice 1 - Conversational Agents
+    Course: Artificial Intelligence
+    Author: Valentino Lugli (Github: @RhinoBlindado)
+    Date: March, 2021
+-->
+
+<!-- NIVEL 3 -->
+
+<!-- Convertir a hora -->
+<category>
+    <pattern>TOHOUR * DE LA <set>dayphase</set></pattern>
+    <template>
+        <think>
+            <set var="hour">
+                <star/>
+            </set>
+
+            <set var="count">
+                <srai> COUNT <srai> DELETREA <get var="hour"/> </srai> </srai>
+            </set>
+            <condition var="count">
+                <li value="1">
+                    <set var="hour">0<get var="hour"/></set>
+                </li>
+            </condition>
+            <set var="phase">
+                <star index="2"/>
+            </set>
+
+            <condition var="phase">
+                <li value="manyana">
+                    <set var="return"><get var="hour"/>:00</set>
+                </li>
+                <li value="tarde">
+                    <set var="return"><srai>SUMA <get var="hour"/> 12 </srai>:00</set>
+                </li>
+            </condition>
+        </think>
+        <get var="return"/>
+    </template>
+</category>
+
+<!-- Convertir a Hora Textual -->
+<category>
+    <pattern>TOHOURTEXT *</pattern>
+    <template>
+        <think>
+            <set var="return">
+                <map name="hourNumberToString"><srai>ORDINAL <star/> </srai></map>
+            </set>
+        </think>
+        <get var="return"/>
+    </template>
+</category>
+<!-- Capturar Entradas -->
+<category>
+    <pattern>^ cita ^ <set>number</set> de <set>month_es</set> del <set>number</set> ^ A PARTIR DE LAS <set>texthours</set> DE LA <set>dayphase</set> ^ </pattern>
+    <template>
+        <set var="textHour">
+            <map name="hourStringToNumber"><star index="7"/></map>
+        </set>
+        
+        <set var="phase">
+            <star index="8"/>
+        </set>
+
+        <set var="hour">
+            <srai>TOHOUR <get var="textHour"/> DE LA <get var="phase"/></srai>
+        </set>
+
+        <set var="hourList">
+            <srai> HORASLIBRES <star index="3"/> de <star index="4"/> del <star index="5"/> A PARTIR DE LAS <get var="hour"/> </srai>
+        </set>
+
+        <srai>MORNING INTERVAL ANSWERS <get var=hourList/></srai>
+    </template>
+</category>
+
+
+
+<!-- Dar intervalos -->
+<category>
+    <pattern>MORNING INTERVAL ANSWERS *</pattern>
+    <template>
+        <think>
+            <set var="count">
+                <srai>COUNT <star/></srai>
+            </set>
+            <set var="return"></set>
+            <condition var="count">
+                <li value="5"><set var="return"> tengo la toda la manñana libre, </set></li>
+                <li value="1"><set var="return"> en la mañana tengo a las <srai> TOHOURTEXT <star/></srai></set></li>
+                <li>
+                    <set var="list"><star/></set>
+                    <set var="return"> en la mañana tengo libre </set>
+                    <set var="endOfList">0</set>
+                    <set var="i"><get var="count"/></set>
+
+                    <condition var="endOfList">
+                        <li value="1"></li>
+                        <li>
+                            <set var="i"><srai>MINUS <get var="i"/> 1 </srai></set>
+
+                            <set var="front">
+                                <srai> TOP <get var="list"/> </srai>
+                            </set>
+
+                            <set var="frontOrd">
+                                <srai> ORDINAL <srai> TOP <get var="list"/> </srai> </srai>
+                            </set>
+
+                            <set var="list">
+                                <srai> REMAIN <get var="list"/> </srai>
+                            </set>
+
+                            <set var="secondFront">
+                                <srai> ORDINAL <srai> TOP <get var="list"/> </srai> </srai>
+                            </set>
+
+                            <set var="list">
+                                <srai> REMAIN <get var="list"/> </srai>
+                            </set>
+
+                            <set var="sum">
+                                <srai> SUMA <get var="frontOrd"/> 1 </srai>
+                            </set>
+
+                            <condition var="sum">
+                                <li><value><get var="secondFront"><value>
+                                    <set var="isOnInterval">1</set>
+                                </li>
+                            </condition>
+
+                            <condition var="isOnInterval">
+                                <li value="1">
+                                    <set var="return"><get var="return"> desde las <srai> TOHOURTEXT <get var="front"></srai></set>
+                                </li>
+
+                            <condition var="i">
+                                <li value="1">
+                                    <set var="endOfList">1</set>
+                                    <set var="return"><get var="return"/> <get var="front"/> y <get var="list"/></set>
+                                </li>
+                                <li>
+                                    <set var="return"><get var="return"/> <get var="front"/>, </set>
+                                </li>
+                            </condition>
+                        <loop/>
+                        </li>
+                    </condition>
+                </li>
+            </condition>
+        </think>
+        <get var="return"/>
+    </template>
+</category>
+</aiml>

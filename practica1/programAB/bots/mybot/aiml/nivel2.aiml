@@ -521,7 +521,8 @@
             </set>
             <condition var="hourList">
                 <li value="EMPTYLIST">
-                    <set var="output"><get var="output"/> Lo siento pero tengo toda la <get var="phase"/> ocupada. ¿Desea otro día?</set>
+                    <set var="output">Lo siento pero tengo todo ocupado por la <get var="phase"/>. ¿Desea otro día?</set>
+                    <set name="topic">lvl2_allBusy</set>
                 </li>
                 <li>
                     <set var="output">Vale,</set>
@@ -530,12 +531,15 @@
                     <condition var="phase">
                         <li value="manyana">
                             <set var="output"><get var="output"/> <srai>MORNING ANSWERS <get var="hourList"/></srai></set>
+                            <set name="firstHour">08:00</set>
                         </li>
                         <li value="tarde">
                             <set var="output"><get var="output"/> <srai>NOON ANSWERS <get var="hourList"/></srai></set>
+                            <set name="firstHour">13:00</set>
                         </li>
                     </condition>
                     <set var="output"><get var="output"/> ¿Desea alguna hora en concreto?</set>
+                    <set name="topic">lvl2_freeSlot</set>
                 </li>
             </condition>
         </think>
@@ -647,9 +651,227 @@
         <get var="output"/>
     </template>
 </category>
-<!--        Pedir una cita al estilo DD de MMMM de AA A PARTIR DE LAS HH:00 -->
-<!--        Pedir una cita al estilo HOY/MANYANA/PASADO MANYANA A PARTIR DE LAS HH:00 -->
-<!--        Pedir una cita al estilo [SIGUIENTE PROXIMO] <dia> A PARTIR DE LAS HH:00 -->
 
+<!--        Pedir una cita al estilo DD de MMMM de AA A PARTIR DE LAS HH:00 -->
+<category>
+    <pattern>^ cita ^ <set>number</set> de <set>month_es</set> del <set>number</set> ^ A PARTIR DE LAS * ^ </pattern>
+    <template>
+        <think>
+            <set var="hour">
+                <star index="7"/>
+            </set>
+            <set var="hourList">
+                <srai> HORASLIBRES <star index="3"/> de <star index="4"/> del <star index="5"/> A PARTIR DE LAS <get var="hour"/> </srai>
+            </set>
+
+            <condition var="hourList">
+                <li value="EMPTYLIST">
+                    <set var="output">Lo siento pero a partir de las <get var="hour"/> tengo todo ocupado. ¿Desea otro día?</set>
+                    <set name="topic">lvl2_allBusy</set>
+                </li>
+                <li>
+                    <set name="currentDate"><star index="3"/>_<map name="monthStringToNumber"><star index="4"/></map>_<star index="5"/></set>
+                    <set name="currentDateHR"><star index="3"/> de <star index="4"/> del <star index="5"/></set>
+                    <set var="output">Vale, a partir de las <get var="hour"/> tengo los siguientes huecos libres: <srai>PRETTYHOURS <get var="hourList"/></srai> ¿Desea alguna hora en particular?</set>
+
+                    <set name="topic">lvl2_freeSlot</set>
+                    <set name="firstHour"><get var="hour"/></set>
+                </li>
+            </condition>
+        </think>
+        <get var="output"/>
+    </template>
+</category>
+
+<!--        Pedir una cita al estilo HOY/MANYANA/PASADO MANYANA A PARTIR DE LAS HH:00 -->
+<category>
+    <pattern>^ cita ^ <set>todaytomorrow</set> ^ A PARTIR DE LAS * ^</pattern>
+    <template>
+        <think>
+            <set var="hour">
+                <star index="5"/>
+            </set>
+            <set var="day">
+                <star index="3"/>
+            </set>
+            <condition var="day">
+                <li value="HOY">
+                    <set var="completeDay">
+                        <srai> DATE </srai>
+                    </set>
+                </li>                
+                <li value="MANYANA">
+                    <set var="completeDay">
+                        <srai> DATE IN 1 DAYS</srai>
+                    </set>
+                </li>
+                <li value="PASADO MANYANA">
+                    <set var="completeDay">
+                        <srai> DATE IN 2 DAYS</srai>
+                    </set>
+                </li>
+            </condition>
+
+            <set var="remainder">
+                <srai> REMAIN <get var="completeDay"/></srai>
+            </set>
+            <set var="day">
+                <srai> TOP <get var="completeDay"/></srai>
+            </set>
+
+            <set var="count">
+                <srai> COUNT <srai> DELETREA <get var="day"/> </srai> </srai>
+            </set>
+            <condition var="count">
+                <li value="1">
+                    <set var="day">0<get var="day"/></set>
+                </li>
+            </condition>
+
+            <set var="month">
+                <srai> TOP <get var="remainder"/></srai>
+            </set>
+               <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
+
+            <set var="output">
+                <srai>CITA <get var="day"/> DE <get var="month"/> DEL <get var="year"/> A PARTIR DE LAS <get var="hour"/></srai>
+            </set>
+        </think>
+        <get var="output"/>
+    </template>
+</category>
+<!--        Pedir una cita al estilo [SIGUIENTE PROXIMO] <dia> A PARTIR DE LAS HH:00 -->
+<category>
+    <pattern>^ cita ^ [PROXIMO SIGUIENTE] <set>weekday_es</set> ^ A PARTIR DE LAS * ^</pattern>
+    <template>
+        <think>
+            <set var="hour">
+                <star index="5"/>
+            </set>
+            
+            <set var="day">
+                <star index="3"/>
+            </set>
+
+            <set var="completeDay">
+                <srai> DATE ON <get var="day"/> </srai>
+            </set>
+
+            <set var="remainder">
+                <srai> REMAIN <get var="completeDay"/></srai>
+            </set>
+            <set var="day">
+                <srai> TOP <get var="completeDay"/></srai>
+            </set>
+
+            <set var="count">
+                <srai> COUNT <srai> DELETREA <get var="day"/> </srai> </srai>
+            </set>
+            <condition var="count">
+                <li value="1">
+                    <set var="day">0<get var="day"/></set>
+                </li>
+            </condition>
+
+            <set var="month">
+                <srai> TOP <get var="remainder"/></srai>
+            </set>
+               <set var="year">
+                <srai> REMAIN <get var="remainder"/></srai>
+            </set>
+
+            <set var="output">
+                <srai>CITA <get var="day"/> DE <get var="month"/> DEL <get var="year"/> A PARTIR DE LAS <get var="hour"/></srai>
+            </set>
+        </think>
+        <get var="output"/>
+    </template>
+</category>
+
+
+<topic name="lvl2_allBusy">
+
+    <category>
+        <pattern>Si ^</pattern>
+        <template>Dime que otro dia quisieras hacer la cita</template>
+    </category>
+
+    <category>
+        <pattern>No ^</pattern>
+        <template>
+        <think><set name="topic">unknown</set></think>
+        Entiendo, ¡hasta luego!.
+        </template>
+    </category>
+
+</topic>
+
+<topic name="lvl2_freeSlot">
+    <category>
+        <pattern>(Si) ^ a las * ^</pattern>
+        <template>
+            <think>
+                <set var="item">
+                    <srai> FINDITEM <star index="2"/> IN <srai>HORASLIBRES <get name="currentDateHR"/> A PARTIR DE LAS <get name="firstHour"/></srai></srai>
+                </set>
+                
+                <condition var="item">
+                    <li value="0">
+                        <set var="valid">TRUE</set>
+                    </li>
+                    <li>
+                        <set var="valid">FALSE</set>
+                    </li>
+                </condition>
+
+                <condition var="valid">
+                    <li value="TRUE">
+                        <set var="output">Lo siento, pero esta hora esta ocupada. Recuerda que los huecos que tengo son: <srai>PRETTYHOURS <srai>HORASLIBRES <get name="currentDateHR"/> A PARTIR DE LAS <get name="firstHour"/></srai></srai></set>
+                    </li>
+                    <li>
+                        <srai> MARK NOLIBRE AT <star index="2"/> ON <get name="currentDate"/></srai>
+                        <set var="output">Listo, ya tiene su cita asignada a las <star index="2"/> del <get name="currentDateHR"/>. ¿Quieres pedir otra cita?</set>
+                    </li>
+                </condition>
+            </think>
+            <get var="output"/>
+        </template>
+    </category>
+
+    <category>
+        <pattern> ^ no ^</pattern>
+        <template> <srai> ME DA IGUAL </srai> </template>
+    </category>
+
+    <category>
+        <pattern> ^ me da igual ^ </pattern>
+        <template>
+            <think>
+                <set var="firstHour">
+                    <srai> TOP <srai>HORASLIBRES <get name="currentDateHR"/> A PARTIR DE LAS <get name="firstHour"/></srai></srai>
+                </set>
+                <srai> MARK NOLIBRE AT <get var="firstHour"/> ON <get name="currentDate"/></srai>
+            </think>
+            <sentence>¡Bien! Le he puesto la cita para las <get var="firstHour"/> del <get name="currentDateHR"/>. ¿Quieres pedir otra cita?</sentence>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ <set>number</set> de <set>month_es</set> del <set>number</set> ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+            <srai> CITA <star index="2"/> de <star index="3"/> del <star index="4"/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>^ No ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>¡Vale! ¡Saludos!</template>
+    </category>
+
+</topic>
 
 </aiml>

@@ -19,8 +19,10 @@
 
 <!-- NIVEL 2 -->
 <!-- a. Informar del estado de un día especificado con <ESPECIFICA DIA> -->
+<!--    Reenvia la peticion a la regla correspondiente del Nivel 1 
+        Las reglas variantes reenvian su informacion a esta regla. -->
 <category>
-    <pattern>LIBRE * ^</pattern>
+    <pattern>LIBRE <set>todaytomorrow</set> ^</pattern>
     <template>
         <think>
             <set var="day">
@@ -87,6 +89,8 @@
 </category>
 
 <!-- b. Informar de las franjas libres en un día especificado con <ESPECIFICA DIA> -->
+<!--    Reenvia la peticion a la regla correspondiente del Nivel 1 
+        Las reglas variantes reenvian su informacion a esta regla. -->
 <category>
     <pattern>HORASLIBRES <set>todaytomorrow</set> </pattern>
     <template>
@@ -154,6 +158,8 @@
 
 <!-- c. Informar de las franjas libres por la mañana en un día especificado con <ESPECIFICA DIA> -->
 <!-- d. Informar de las franjas libres por la tarde en un día especificado con <ESPECIFICA DIA> -->
+<!--    Reenvia la peticion a la reglas correspondientes del Nivel 1 
+        Las reglas variantes reenvian su informacion a esta regla. -->
 <category>
     <pattern>HORASLIBRES <set>number</set> DE <set>month_es</set> DEL <set>number</set> (POR LA) *</pattern>
     <template>
@@ -174,7 +180,7 @@
 </category>
 
 <category>
-    <pattern>HORASLIBRES <set>todaytomorrow</set> (POR LA) *</pattern>
+    <pattern>HORASLIBRES <set>todaytomorrow</set> (POR LA) <set>dayphase</set> </pattern>
     <template>
         <think>
             <set var="day">
@@ -213,7 +219,7 @@
                 <star index="2"/>
             </set>
         </think>
-        <srai>HORASLIBRES <set var="day"/> DE <set var="month"/> DEL <set var="year"/> POR LA <set var="hourOfDay"/></srai>
+        <srai>HORASLIBRES <get var="day"/> DE <get var="month"/> DEL <get var="year"/> POR LA <get var="hourOfDay"/></srai>
     </template>
 </category>
 
@@ -252,6 +258,8 @@
 </category>
 
 <!-- e. Informar de las franjas libres a partir de una hora dada en un día especificado con <ESPECIFICA DIA> -->
+<!--     Crea una sublista de las horas pedidas hasta el final de las horas laborables y las imprime. -->
+<!--     El resto de reglas variantes reenvia la informacion a esta regla -->
 <category>
     <pattern>HORASLIBRES <set>number</set> DE <set>month_es</set> DEL <set>number</set> A PARTIR DE LAS *</pattern>
     <template>
@@ -314,10 +322,14 @@
                     </set>
 
                     <!-- if(daySlots.empty()) endOfList = 1;-->
+                    <!-- Se utiliza "$" o "nil" porque dependiendo del SO cambia la variable de retorno -->
                     <condition var="daySlots">
                         <li value="$">
                             <set var="endOfList">1</set>
                         </li>
+                         <li value="nil">
+                            <set var="endOfList">1</set>
+                        </li>                       
                     </condition>
                 <loop/>
                 </li>
@@ -461,6 +473,7 @@
             <set var="output">
                 <srai> CITA <get var="day"/> de <get var="month"/> del <get var="year"/> </srai>
             </set>
+            <set name="topic">lvl2_freeSlot</set>
         </think>
         <get var="output"/>
     </template>
@@ -499,7 +512,7 @@
                <set var="year">
                 <srai> REMAIN <get var="remainder"/></srai>
             </set>
-            
+            <set name="topic">lvl2_freeSlot</set>
             <set var="output">
                 <srai> CITA <get var="day"/> de <get var="month"/> del <get var="year"/> </srai>
             </set>
@@ -742,6 +755,7 @@
         <get var="output"/>
     </template>
 </category>
+
 <!--        Pedir una cita al estilo [SIGUIENTE PROXIMO] <dia> A PARTIR DE LAS HH:00 -->
 <category>
     <pattern>^ cita ^ [PROXIMO SIGUIENTE] <set>weekday_es</set> ^ A PARTIR DE LAS * ^</pattern>
@@ -790,7 +804,8 @@
     </template>
 </category>
 
-
+<!-- Se utilizan los topics para diferenciarlo del nivel 1 en ciertos aspectos -->
+<!--    Respuestas para "Todo ocupado"-->
 <topic name="lvl2_allBusy">
 
     <category>
@@ -808,6 +823,8 @@
 
 </topic>
 
+
+<!-- Respuestas para si existe al menos un hueco libre -->
 <topic name="lvl2_freeSlot">
     <category>
         <pattern>(Si) ^ a las * ^</pattern>
@@ -840,6 +857,7 @@
         </template>
     </category>
 
+<!-- Respuestas a la pregunta si se desea otra cita -->
     <category>
         <pattern> ^ no ^</pattern>
         <template> <srai> ME DA IGUAL </srai> </template>
@@ -858,11 +876,76 @@
         </template>
     </category>
 
+<!-- Esta respuesta reenvia los datos a la regla principal de la cita, se tiene una para cada regla de este nivel -->
     <category>
         <pattern>Si ^ <set>number</set> de <set>month_es</set> del <set>number</set> ^</pattern>
         <that> * PEDIR OTRA CITA</that>
         <template>
             <srai> CITA <star index="2"/> de <star index="3"/> del <star index="4"/></srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ <set>number</set> de <set>month_es</set> del <set>number</set> ^ (POR LA) <set>dayphase</set> ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+             <srai> CITA <star index="2"/> de <star index="3"/> del <star index="4"/> POR LA <star index="5"/> </srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ <set>number</set> de <set>month_es</set> del <set>number</set> ^ A PARTIR DE LAS * ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+             <srai> CITA <star index="2"/> de <star index="3"/> del <star index="4"/> A PARTIR DE LAS <star index="6"/> </srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ <set>todaytomorrow</set> ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+            <srai> CITA <star index="2"/> </srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ <set>todaytomorrow</set> ^ (POR LA) <set>dayphase</set> ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+            <srai> CITA <star index="2"/> POR LA <star index="4"/> </srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ <set>todaytomorrow</set> ^ A PARTIR DE LAS * ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+            <srai> CITA <star index="2"/> A PARTIR DE LAS <star index="4"/> </srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ [PROXIMO SIGUIENTE] <set>weekday_es</set> ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+            <srai> CITA PROXIMO <star index="2"/> </srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ [PROXIMO SIGUIENTE] <set>weekday_es</set> ^ (POR LA) <set>dayphase</set> ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+            <srai> CITA PROXIMO <star index="2"/> POR LA <star index="4"/> </srai>
+        </template>
+    </category>
+
+    <category>
+        <pattern>Si ^ [PROXIMO SIGUIENTE] <set>weekday_es</set> ^ A PARTIR DE LAS * ^</pattern>
+        <that> * PEDIR OTRA CITA</that>
+        <template>
+            <srai> CITA PROXIMO <star index="2"/> A PARTIR DE LAS <star index="4"/> </srai>
         </template>
     </category>
 

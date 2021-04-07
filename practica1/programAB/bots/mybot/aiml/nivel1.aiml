@@ -21,6 +21,7 @@
 <!--    1. Escribir las reglas necesarias para poder realizar las siguientes consultas dado un día representado como "dd de MMMMMMMMM del yy"-->
 
 <!--        a. informar sobre si el día está libre o no -->
+<!--        Se recorre la sublista de los días de 8:00 a 20:00 y si se consigue un "LIBRE" entonces hay hueco -->
 <category>
     <pattern>LIBRE * de * del * ^</pattern>
     <template>
@@ -56,6 +57,7 @@
 </category>
 
 <!--        b. Informar de las franjas libres en un día-->
+<!--        De 8:00 a 20:00 se recorre una lista, y donde se encuentre "LIBRE" se añade su equivalente a hora a la lista -->
 <category>
     <pattern>HORASLIBRES * de * del *</pattern>
     <template>
@@ -116,8 +118,12 @@
                     </set>
 
                     <!-- if(daySlots.empty()) endOfList = 1;-->
+                    <!-- Se utiliza "$" o "nil" porque dependiendo del SO cambia la variable de retorno -->
                     <condition var="daySlots">
                         <li value="$">
+                            <set var="endOfList">1</set>
+                        </li>
+                        <li value="nil">
                             <set var="endOfList">1</set>
                         </li>
                     </condition>
@@ -141,6 +147,8 @@
 </category>
 
 <!--        c. Informar de las franjas libres por la mañana en un día -->
+<!--        De 8:00 a 12:00 se recorre una lista, y donde se encuentre "LIBRE" se añade su equivalente a hora a la lista -->
+
 <category>
     <pattern>HLMANYANA * de * del *</pattern>
     <template>
@@ -191,8 +199,12 @@
                     </set>
 
                     <!-- if(daySlots.empty()) endOfList = 1;-->
+                    <!-- Se utiliza "$" o "nil" porque dependiendo del SO cambia la variable de retorno -->
                     <condition var="daySlots">
                         <li value="$">
+                            <set var="endOfList">1</set>
+                        </li>
+                        <li value="nil">
                             <set var="endOfList">1</set>
                         </li>
                     </condition>
@@ -215,6 +227,8 @@
 </category>
 
 <!--        d. Informar de las franjas libres por la tarde en un día  -->
+<!--        De 13:00 a 20:00 se recorre una lista, y donde se encuentre "LIBRE" se añade su equivalente a hora a la lista -->
+
 <category>
     <pattern>HLTARDE * de * del *</pattern>
     <template>
@@ -265,8 +279,12 @@
                     </set>
 
                     <!-- if(daySlots.empty()) endOfList = 1;-->
+                    <!-- Se utiliza "$" o "nil" porque dependiendo del SO cambia la variable de retorno -->
                     <condition var="daySlots">
                         <li value="$">
+                            <set var="endOfList">1</set>
+                        </li>
+                        <li value="nil">
                             <set var="endOfList">1</set>
                         </li>
                     </condition>
@@ -351,6 +369,7 @@
     </template>
 </category>
 
+<!-- Reglas auxiliares que formatean la respuesta de manera que queda mas natural, para mañana y tarde -->
 <category>
     <pattern>MORNING ANSWERS *</pattern>
     <template>
@@ -449,6 +468,7 @@
     </template>
 </category>
 
+<!-- Regla auxiliar que le añade conectivos a las horas para que sea mas agradable y humano. -->
 <category>
     <pattern>PRETTYHOURS *</pattern>
     <template>

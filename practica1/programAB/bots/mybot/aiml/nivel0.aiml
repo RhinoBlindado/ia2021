@@ -93,9 +93,9 @@
 
 <!--        Reglas auxiliares -->
 <category>
-    <pattern>^ (que) dia [es sera será] * ^</pattern>
+    <pattern>^ (que) dia ^ [es sera será] * ^</pattern>
     <template>
-        <srai> DIA SEMANA <star index="2"/></srai>
+        <srai> DIA SEMANA <star index="3"/></srai>
     </template>
 </category>
 
@@ -144,6 +144,30 @@
     <pattern> ^ fecha sera ^ proximo *</pattern>
     <template>
         <sentence>Lo siento, pero <star index="3"/> no es un dia.</sentence>
+    </template>
+</category>
+
+
+<!--    Reglas Extra  -->
+
+<category>
+    <pattern> ^ hola ^ </pattern>
+    <template>
+        <sentence>¡Hola! Soy un bot escrito en AIML</sentence>
+    </template>
+</category>
+
+<category>
+    <pattern> ^ como estas ^ </pattern>
+    <template>
+        <sentence>Muy bien</sentence>
+    </template>
+</category>
+
+<category> 
+    <pattern> ^ quien ^ eres ^ </pattern>
+    <template>
+        <sentence>Soy un bot de AIML escrito por Valentino Lugli en 2021. Que cosas, ¿no?</sentence>
     </template>
 </category>
 

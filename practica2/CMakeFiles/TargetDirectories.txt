@@ -1,0 +1,9 @@
+/home/valentino/Desktop/Git/ia2021/practica2/CMakeFiles/rebuild_cache.dir
+/home/valentino/Desktop/Git/ia2021/practica2/CMakeFiles/edit_cache.dir
+/home/valentino/Desktop/Git/ia2021/practica2/CMakeFiles/BelkanSG.dir
+/home/valentino/Desktop/Git/ia2021/practica2/CMakeFiles/Belkan.dir
+/home/valentino/Desktop/Git/ia2021/practica2/CMakeFiles/motorLib.dir
+/home/valentino/Desktop/Git/ia2021/practica2/CMakeFiles/GLUILib.dir
+/home/valentino/Desktop/Git/ia2021/practica2/CMakeFiles/comportamientosLib.dir
+/home/valentino/Desktop/Git/ia2021/practica2/CMakeFiles/modelosBelkanLib.dir
+/home/valentino/Desktop/Git/ia2021/practica2/CMakeFiles/obj3DLib.dir

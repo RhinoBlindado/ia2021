@@ -1,3 +1,5 @@
 # Ignore CPP build files
-
 *.o
+
+# Ignore misc files
+./practica2/CMakeFiles/*

@@ -6,30 +6,22 @@
 #include <set>
 #include <stack>
 #include <queue>
+#include <map>
+
 
 // Este es el método principal que se piden en la practica.
 // Tiene como entrada la información de los sensores y devuelve la acción a realizar.
 // Para ver los distintos sensores mirar fichero "comportamiento.hpp"
 Action ComportamientoJugador::think(Sensores sensores) 
 {
-
-	for (int i = 0; i < mapaResultado.size(); i++)
-	{
-		for (int j = 0; j < mapaResultado[0].size(); j++)
-		{
-			cout<<mapaResultado[i][j]<<" ";
-		}
-		cout<<endl;
-	}
-
-
 	// Actualizar la variable global.
 	actual.fila = sensores.posF;
 	actual.columna = sensores.posC;
 	actual.orientacion = sensores.sentido;
 
 	batteryLevel = sensores.bateria;
-
+	cout<<"Casilla["<<actual.fila<<"]["<<actual.columna<<"]="<<mapaResultado[actual.fila][actual.columna]<<endl;
+	cout<<"Batería=="<<batteryLevel<<endl;
 	// Capturar destinos.
 	objetivos.clear();
 	for (int i = 0; i < sensores.num_destinos; i++)
@@ -407,48 +399,82 @@ class aStarNode
 		int totalCost;
 		int accumCost;
 		int expectedCost;
+		bool hasBikini;
+		bool hasShoes;
 
 	public:
 
 		aStarNode(){}
 
-		aStarNode(estado arg_nodeStatus, int arg_accumCost, int arg_expectedCost, list<Action> arg_routeSoFar)
+		aStarNode(estado arg_nodeStatus, int arg_accumCost, int arg_expectedCost, list<Action> arg_routeSoFar, bool arg_bikini, bool arg_shoes)
 		{
 			this->nodeStatus = arg_nodeStatus;
 			this->accumCost = arg_accumCost;
 			this->expectedCost = arg_expectedCost;
 			this->totalCost = this->accumCost + this->expectedCost;
 			this->routeSoFar = arg_routeSoFar;
+			this->hasBikini = arg_bikini;
+			this->hasShoes = arg_shoes;
 		}
 
-		estado getStatus()
+		estado getStatus() const
 		{
 			return this->nodeStatus;
 		}
 
-		int getTotalCost()
+		int getTotalCost() const
 		{
 			return this->totalCost;
 		}
 
-		int getAccumCost()
+		int getAccumCost() const
 		{
 			return this->accumCost;
 		}
 
-		int getExpectedCost()
+		int getExpectedCost() const
 		{
 			return this->expectedCost;
 		}
 
-		void printContents()
+		bool getIfHasBikini() const
 		{
-			cout<<"Node ["<<nodeStatus.fila<<"]["<<nodeStatus.columna<<"]("<<nodeStatus.orientacion<<") f("<<totalCost<<")=g("<<accumCost<<")+h("<<expectedCost<<") Road size= "<<routeSoFar.size()<<endl;
+			return this->hasBikini;
 		}
 
-		bool equalCoords(estado argStatus)
+		bool getIfHasShoes() const
+		{
+			return this->hasShoes;
+		}
+
+		void copy(aStarNode arg)
+		{
+			this->nodeStatus = arg.nodeStatus;
+			this->accumCost = arg.accumCost;
+			this->expectedCost = arg.expectedCost;
+			this->totalCost = arg.totalCost;
+			this->routeSoFar = arg.routeSoFar;
+			this->hasBikini = arg.hasBikini;
+			this->hasShoes = arg.hasShoes;
+		}
+
+		void printContents() const
+		{
+			cout<<"\tNode ["<<nodeStatus.fila<<"]["<<nodeStatus.columna<<"]("<<nodeStatus.orientacion<<") K("<<hasBikini<<") S("<<hasShoes<<") | f("<<totalCost<<")=g("<<accumCost<<")+h("<<expectedCost<<") Road size="<<routeSoFar.size()<<endl;
+		}
+
+		bool equalCoords(estado argStatus) const
 		{
 			return this->nodeStatus.fila == argStatus.fila && this->nodeStatus.columna == argStatus.columna;
+		}
+
+		bool equalNode(const aStarNode &arg) const
+		{
+			return 	this->nodeStatus.fila == arg.nodeStatus.fila && 
+					this->nodeStatus.columna == arg.nodeStatus.columna && 
+					this->nodeStatus.orientacion == arg.nodeStatus.orientacion &&
+					this->hasBikini == arg.hasBikini &&
+					this->hasShoes == arg.hasShoes;
 		}
 
 		list<Action> getRoute()
@@ -458,12 +484,39 @@ class aStarNode
 
 };
 
-class costCompare
+
+bool costCompare(const aStarNode &a, const aStarNode &b)
+{
+	bool eval = false;
+	if (a.getTotalCost() < b.getTotalCost())
+	{
+		eval = true;
+	}
+	else if(a.getTotalCost() == b.getTotalCost())
+	{
+		if (a.getAccumCost() < b.getAccumCost())
+		{
+			eval = true;
+		}
+		
+	}
+
+	return eval;
+}
+
+class isSameNode
 {
 	public:
-		bool operator()(aStarNode& a, aStarNode& b)
-		{
-			return a.getTotalCost() > b.getTotalCost();
+		bool operator()(const aStarNode &a, const aStarNode &b)
+		{			
+			if ((a.getStatus().fila > b.getStatus().fila) or 
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna > b.getStatus().columna) or
+	      		(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion > b.getStatus().orientacion) ||
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && (int)a.getIfHasBikini() > (int)b.getIfHasBikini()) ||
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && a.getIfHasBikini() == b.getIfHasBikini()) && (int)a.getIfHasShoes() > (int)b.getIfHasShoes())
+				return true;
+			else
+				return false;
 		}
 };
 
@@ -484,47 +537,63 @@ int manhattanDist(estado origin, estado destination)
  */
 bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const estado &destination, list<Action> &theRoad)
 {
-	bool hasRoute = false, validNode;
-	priority_queue<aStarNode, vector<aStarNode>, costCompare> open;
-	set<estado,ComparaEstados> closed;
+	bool hasRoute = false, 
+		 validNode,
+		 isOnClosed,
+		 isOnOpen,
+		 actHasBikini,
+		 actHasShoes;
+
+	list<aStarNode> open;
+	list<aStarNode>::iterator openFinder;
+
+	map<aStarNode, aStarNode, isSameNode> closed;
+	map<aStarNode, aStarNode>::iterator closedFinder;
+	
 	list<Action> actualRoad;
 
-	estado actStatus;
+	estado actStatus, 
+		   auxStatus;
 	int actAccumCost;
 	Action actAction;
 
-	aStarNode actNode, root(origin, 0, manhattanDist(origin, destination), theRoad);
-	open.push(root);
+	(mapaResultado[origin.fila][origin.columna]=='K' ? actHasBikini = true : actHasBikini = false);
+	(mapaResultado[origin.fila][origin.columna]=='D' ? actHasShoes = true : actHasShoes = false);
+
+	aStarNode actNode, root(origin, 0, manhattanDist(origin, destination), theRoad, actHasBikini, actHasShoes), auxNode;
+	open.push_back(root);
 
 	while (!open.empty())
 	{
-		actNode = open.top();
-		open.pop();
+		actNode = open.front();
+		open.pop_front();
 
-		if(actNode.equalCoords(destination))
+		if(actNode.equalCoords(destination) && actNode.getAccumCost() <= 3000)
 		{
 			hasRoute = true;
 			break;
 		}
 
-		closed.insert(actNode.getStatus());
+		closed.insert(pair<aStarNode, aStarNode>(actNode, actNode));
 
 		for (int i = 0; i < 3; i++)
 		{
 			validNode = false;
 			actStatus = actNode.getStatus();
 			actAccumCost = actNode.getAccumCost();
-			actAction = i;
+			actHasBikini = actNode.getIfHasBikini();
+			actHasShoes = actNode.getIfHasShoes();
+
+			actAction = (Action)i;
 
 			// Girar a la derecha o izquierda
 			if (i == actTURN_R || i == actTURN_L)
 			{
 				actStatus.orientacion = ( i == actTURN_L ? (actStatus.orientacion+3)%4 : (actStatus.orientacion+1)%4);
-
 				switch (mapaResultado[actStatus.fila][actStatus.columna])
 				{
 					case 'A':
-						if (hasBikini)
+						if (actHasBikini)
 						{
 							actAccumCost += 5;
 						}
@@ -535,7 +604,7 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 					break;
 					
 					case 'B':
-						if (hasShoes)
+						if (actHasShoes)
 						{
 							actAccumCost += 1;
 						}
@@ -543,6 +612,18 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 						{
 							actAccumCost += 3;
 						}
+					break;
+
+					case 'K':
+						actAccumCost += 1;
+						actHasBikini = true;
+						actHasShoes = false;
+					break;
+
+					case 'D':
+						actAccumCost += 1;
+						actHasBikini = false;
+						actHasShoes = true;
 					break;
 
 					case 'T':
@@ -555,31 +636,31 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 				}
 				validNode = true;
 			}
-			
+
 			// Avanzar
 			if (i == actFORWARD)
 			{
 				switch (mapaResultado[actStatus.fila][actStatus.columna])
 				{
 					case 'A':
-						if (hasBikini)
+						if (actHasBikini)
 						{
-							actAccumCost += 5;
+							actAccumCost += 10;
 						}
 						else
 						{
-							actAccumCost += 500;
+							actAccumCost += 200;
 						}
 					break;
 					
 					case 'B':
-						if (hasShoes)
+						if (actHasShoes)
 						{
-							actAccumCost += 1;
+							actAccumCost += 15;
 						}
 						else
 						{
-							actAccumCost += 3;
+							actAccumCost += 100;
 						}
 					break;
 
@@ -589,28 +670,23 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 
 					case 'K':
 						actAccumCost += 1;
-						hasBikini = true;
-						hasShoes = false;
+						actHasBikini = true;
+						actHasShoes = false;
 					break;
 
 					case 'D':
 						actAccumCost += 1;
-						hasBikini = false;
-						hasShoes = true;
-					break;
-
-					case 'X':
-						actAccumCost -= 10;
+						actHasBikini = false;
+						actHasShoes = true;
 					break;
 
 					default:
 						actAccumCost += 1;
 					break;
-
-					if(!HayObstaculoDelante(actStatus))
-					{
-						validNode = true;
-					}
+				}
+				if(!HayObstaculoDelante(actStatus))
+				{
+					validNode = true;
 				}
 
 			}
@@ -619,16 +695,59 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 			{
 				actualRoad = actNode.getRoute();
 				actualRoad.push_back(actAction);
-				
-				nodo newNode(actStatus, actAccumCost, manhattanDist(actStatus, destination), actualRoad);
+
+				aStarNode newNode(actStatus, actAccumCost, manhattanDist(actStatus, destination), actualRoad, actHasBikini, actHasShoes);
+
+			//	newNode.printContents();
+
+				isOnClosed = false;
+				isOnOpen = false;
+
+				closedFinder = closed.find(newNode);
+
+				if(closedFinder != closed.end())
+				{
+					isOnClosed = true;
+					if(newNode.getAccumCost() < closedFinder->second.getAccumCost())
+					{
+						newNode.copy(closedFinder->second);
+						closed.erase(closedFinder);
+						open.push_back(newNode);
+					}
+				}
+
+				if(!isOnClosed)
+				{					
+					for (list<aStarNode>::iterator it = open.begin(); it != open.end(); ++it)
+					{
+
+						if (newNode.equalNode(*it))
+						{
+							isOnOpen = true;
+							if (newNode.getAccumCost() < it->getAccumCost())
+							{
+								it->copy(newNode);
+								break;
+							}	
+						}	
+					}
+				}
+
+				if(!isOnClosed && !isOnOpen)
+				{
+					open.push_back(newNode);
+				}			
+
 			}
 		}
+		open.sort(costCompare);
 	}
 
 	if(hasRoute)
 	{
 		theRoad = actNode.getRoute();
 		cout<<"Ruta encontrada, longitud: "<<theRoad.size()<<endl;
+		cout<<"Nivel de batería al llegar al objetivo: "<<(3000 - actNode.getAccumCost())<<endl;
 		PintaPlan(theRoad);
 		VisualizaPlan(origin, theRoad);
 	}

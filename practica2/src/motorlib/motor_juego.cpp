@@ -21,6 +21,7 @@ bool actuacionJugador(unsigned char celda_inicial, unsigned char celda_fin, Acti
   switch (accion) {
     case actFORWARD:
       if (monitor.getMapa()->casillaOcupada(0) == -1) {
+        monitor.get_entidad(0)->fixBateria_sig_accion(celda_inicial, accion);        
         switch (celda_fin) {
           case 'M': // Muro
                 monitor.get_entidad(0)->seAostio(); break;
@@ -80,7 +81,6 @@ bool actuacionJugador(unsigned char celda_inicial, unsigned char celda_fin, Acti
             monitor.get_entidad(0)->setObjetivos(monitor.get_active_objetivos());
           }
         }
-        monitor.get_entidad(0)->fixBateria_sig_accion(celda_inicial, accion);
       }
       else{
         monitor.get_entidad(0)->seAostio();

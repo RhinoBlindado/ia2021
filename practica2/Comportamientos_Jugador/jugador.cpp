@@ -8,6 +8,26 @@
 #include <queue>
 #include <map>
 
+int manhattanDist(estado a, estado b);
+
+bool objSort(const objective &a, const objective &b)
+{
+	return a.distToPlayer < b.distToPlayer;
+}
+
+void checkIfOnObjective(estado currPos, list<objective> &objList)
+{
+	for (list<objective>::iterator it = objList.begin(); it != objList.end(); ++it) 
+	{
+		if (currPos.fila == it->status.fila && currPos.columna == it->status.columna)
+		{
+			it = objList.erase(it);
+			objList.sort(objSort);
+			break;
+		}	
+	}
+
+}
 
 // Este es el método principal que se piden en la practica.
 // Tiene como entrada la información de los sensores y devuelve la acción a realizar.
@@ -20,24 +40,88 @@ Action ComportamientoJugador::think(Sensores sensores)
 	actual.orientacion = sensores.sentido;
 
 	batteryLevel = sensores.bateria;
-	cout<<"Casilla["<<actual.fila<<"]["<<actual.columna<<"]="<<mapaResultado[actual.fila][actual.columna]<<endl;
-	cout<<"Batería=="<<batteryLevel<<endl;
 	// Capturar destinos.
 	objetivos.clear();
 	for (int i = 0; i < sensores.num_destinos; i++)
 	{
-		estado aux;
-		aux.fila = sensores.destino[2*i];
-		aux.columna = sensores.destino[2*i+1];
+		objective aux;
+		aux.status.fila = sensores.destino[2*i];
+		aux.status.columna = sensores.destino[2*i+1];
+		aux.distToPlayer = manhattanDist(actual, aux.status);
 		objetivos.push_back(aux);
 	}
-	
-	if(!hayPlan)
+
+	if(mapaResultado[actual.fila][actual.columna] == 'K')
 	{
-		hayPlan = pathFinding(sensores.nivel, actual, objetivos, plan);
+		hasBikini = true;
+		hasShoes = false;
+	}
+
+	if(mapaResultado[actual.fila][actual.columna] == 'D')
+	{
+		hasBikini = false;
+		hasShoes = true;
+	}
+
+	if(sensores.nivel == 4)
+	{
+		if (actual.fila == currObj.status.fila && actual.columna == currObj.status.columna && lowBattery)
+		{
+			plan.push_back(actIDLE);
+
+			if(batteryLevel > 2000)
+			{
+				lowBattery = false;
+				hayPlan = false;
+				actualObjectives.sort(objSort);
+			}				
+		}
+
+		if(isEnteringFog(actual, sensores.terreno))
+		{
+			removeFog(actual, sensores.terreno);
+			hayPlan = false;
+		}
+
+		if (batteryLevel < 1700)
+		{
+			checkForEnergyStations();
+			if (!energyStations.empty())
+			{
+				currObj = energyStations.front();
+				lowBattery = true;
+			}
+		}
+
+		checkIfOnObjective(actual, actualObjectives);
+
+		if(!lowBattery)
+		{
+			if (actualObjectives.empty())
+			{
+				actualObjectives = objetivos;
+				actualObjectives.sort(objSort);
+			}
+			currObj = actualObjectives.front();
+			cout<<"OBJETIVO ACTUAL ES"<<currObj.status.fila<<" "<<currObj.status.columna<<endl;
+		}
+	}
+
+	if(!hayPlan || plan.empty())
+	{
+		plan.clear();
+		hayPlan = pathFinding(sensores.nivel, actual, objetivos, currObj, plan);
 	}
 
 	Action sigAccion;
+
+	if (sensores.colision)
+	{
+		cout<<"COLISION!"<<endl;
+		hayPlan = false;
+		sigAccion = actIDLE;
+	}
+
 	if(hayPlan && plan.size() > 0)
 	{
 		sigAccion = plan.front();
@@ -54,33 +138,36 @@ Action ComportamientoJugador::think(Sensores sensores)
 
 // Llama al algoritmo de busqueda que se usara en cada comportamiento del agente
 // Level representa el comportamiento en el que fue iniciado el agente.
-bool ComportamientoJugador::pathFinding (int level, const estado &origen, const list<estado> &destino, list<Action> &plan){
-	switch (level){
-		case 0: cout << "Demo\n";
-						estado un_objetivo;
-						un_objetivo = objetivos.front();
-						cout << "fila: " << un_objetivo.fila << " col:" << un_objetivo.columna << endl;
-			      return pathFinding_Profundidad(origen,un_objetivo,plan);
-						break;
+bool ComportamientoJugador::pathFinding (int level, const estado &origen, const list<objective> &destino, objective survivalObj, list<Action> &plan)
+{
+	switch (level)
+	{
+		case 0: 
+			cout << "Demo\n";
+			objective un_objetivo;
+			un_objetivo = destino.front();
+			cout << "fila: " << un_objetivo.status.fila << " col:" << un_objetivo.status.columna << endl;
+			return pathFinding_Profundidad(origen,un_objetivo.status,plan);
+		break;
 
 		case 1: // Incluir aqui la llamada al busqueda en anchura
 			cout << "Optimo numero de acciones\n";
-			estado actualObjetive;
-			actualObjetive = objetivos.front();
-			return pathFinding_Anchura(origen, actualObjetive, plan);
+			return pathFinding_Anchura(origen, destino.front().status, plan);
 		break;
+
 		case 2: // Incluir aqui la llamada al busqueda de costo uniforme
 			cout << "Optimo en coste 1 Objetivo\n";
-			return pathFinding_Aestrella(origen, objetivos.front(), plan);
+			return pathFinding_Aestrella(origen, destino.front().status, plan);
 		break;
-		case 3: cout << "Optimo en coste 3 Objetivos\n";
-						// Incluir aqui la llamada al algoritmo de busqueda para 3 objetivos
-						cout << "No implementado aun\n";
-						break;
-		case 4: cout << "Algoritmo de busqueda usado en el reto\n";
-						// Incluir aqui la llamada al algoritmo de busqueda usado en el nivel 2
-						cout << "No implementado aun\n";
-						break;
+
+		case 3: // Incluir aqui la llamada al algoritmo de busqueda para 3 objetivos
+		cout << "Optimo en coste 3 Objetivos\n";
+			return  pathFinding_AestrellaMulti(origen, destino, plan);
+		break;
+
+		case 4: // Incluir aqui la llamada al algoritmo de busqueda usado en el nivel 2
+			return pathFinding_Aestrella(origen, survivalObj.status, plan);
+		break;
 	}
 	return false;
 }
@@ -385,7 +472,7 @@ bool ComportamientoJugador::pathFinding_Anchura(const estado &origen, const esta
 }
 
 /**
- * 		[NIVEL 2]
+ * 		[NIVEL 2] | [NIVEL 3]
  */
 
 /**
@@ -396,6 +483,7 @@ class aStarNode
 	private:
 		estado nodeStatus;
 		list<Action> routeSoFar;
+		list<objective> currentObjectives;
 		int totalCost;
 		int accumCost;
 		int expectedCost;
@@ -403,7 +491,6 @@ class aStarNode
 		bool hasShoes;
 
 	public:
-
 		aStarNode(){}
 
 		aStarNode(estado arg_nodeStatus, int arg_accumCost, int arg_expectedCost, list<Action> arg_routeSoFar, bool arg_bikini, bool arg_shoes)
@@ -415,6 +502,18 @@ class aStarNode
 			this->routeSoFar = arg_routeSoFar;
 			this->hasBikini = arg_bikini;
 			this->hasShoes = arg_shoes;
+		}
+
+		aStarNode(estado arg_nodeStatus, int arg_accumCost, int arg_expectedCost, list<Action> arg_routeSoFar, bool arg_bikini, bool arg_shoes, list<objective> arg_obj)
+		{
+			this->nodeStatus = arg_nodeStatus;
+			this->accumCost = arg_accumCost;
+			this->expectedCost = arg_expectedCost;
+			this->totalCost = this->accumCost + this->expectedCost;
+			this->routeSoFar = arg_routeSoFar;
+			this->hasBikini = arg_bikini;
+			this->hasShoes = arg_shoes;
+			this->currentObjectives = arg_obj;
 		}
 
 		estado getStatus() const
@@ -456,11 +555,12 @@ class aStarNode
 			this->routeSoFar = arg.routeSoFar;
 			this->hasBikini = arg.hasBikini;
 			this->hasShoes = arg.hasShoes;
+			this->currentObjectives = arg.currentObjectives;
 		}
 
 		void printContents() const
 		{
-			cout<<"\tNode ["<<nodeStatus.fila<<"]["<<nodeStatus.columna<<"]("<<nodeStatus.orientacion<<") K("<<hasBikini<<") S("<<hasShoes<<") | f("<<totalCost<<")=g("<<accumCost<<")+h("<<expectedCost<<") Road size="<<routeSoFar.size()<<endl;
+			cout<<"\tNode ["<<nodeStatus.fila<<"]["<<nodeStatus.columna<<"]("<<nodeStatus.orientacion<<") K("<<hasBikini<<") S("<<hasShoes<<") | f("<<totalCost<<")=g("<<accumCost<<")+h("<<expectedCost<<") Road size="<<routeSoFar.size()<<" Objectives="<<currentObjectives.size()<<endl;
 		}
 
 		bool equalCoords(estado argStatus) const
@@ -474,12 +574,36 @@ class aStarNode
 					this->nodeStatus.columna == arg.nodeStatus.columna && 
 					this->nodeStatus.orientacion == arg.nodeStatus.orientacion &&
 					this->hasBikini == arg.hasBikini &&
-					this->hasShoes == arg.hasShoes;
+					this->hasShoes == arg.hasShoes &&
+					this->currentObjectives.size() == arg.currentObjectives.size();
 		}
 
-		list<Action> getRoute()
+		list<Action> getRoute() const
 		{
 			return this->routeSoFar;
+		}
+
+		list<objective> getObjectives() const
+		{
+			return this->currentObjectives;
+		}
+
+		objective getActualObjective() const
+		{
+			return this->currentObjectives.front();
+		}
+
+		int getNumObjectives() const
+		{
+			return this->currentObjectives.size();
+		}
+
+		void removeActualObjective()
+		{
+			if(!currentObjectives.empty())
+			{
+				this->currentObjectives.pop_front();
+			}
 		}
 
 };
@@ -488,6 +612,7 @@ class aStarNode
 bool costCompare(const aStarNode &a, const aStarNode &b)
 {
 	bool eval = false;
+
 	if (a.getTotalCost() < b.getTotalCost())
 	{
 		eval = true;
@@ -513,7 +638,24 @@ class isSameNode
 				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna > b.getStatus().columna) or
 	      		(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion > b.getStatus().orientacion) ||
 				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && (int)a.getIfHasBikini() > (int)b.getIfHasBikini()) ||
-				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && a.getIfHasBikini() == b.getIfHasBikini()) && (int)a.getIfHasShoes() > (int)b.getIfHasShoes())
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && a.getIfHasBikini() == b.getIfHasBikini() && (int)a.getIfHasShoes() > (int)b.getIfHasShoes()))
+				return true;
+			else
+				return false;
+		}
+};
+
+class isSameNodeMulti
+{
+	public:
+		bool operator()(const aStarNode &a, const aStarNode &b)
+		{			
+			if ((a.getStatus().fila > b.getStatus().fila) or 
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna > b.getStatus().columna) or
+	      		(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion > b.getStatus().orientacion) ||
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && (int)a.getIfHasBikini() > (int)b.getIfHasBikini()) ||
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && a.getIfHasBikini() == b.getIfHasBikini() && (int)a.getIfHasShoes() > (int)b.getIfHasShoes()) ||
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && a.getIfHasBikini() == b.getIfHasBikini() && a.getIfHasShoes() == b.getIfHasShoes() && a.getNumObjectives() > b.getNumObjectives()))
 				return true;
 			else
 				return false;
@@ -531,6 +673,26 @@ int manhattanDist(estado origin, estado destination)
 	return abs(origin.fila - destination.fila) + abs(origin.columna - destination.columna);
 }
 
+int multiManhattanDist(estado origin, list<objective> objectives)
+{
+	int sum = 0;
+	objective destination;
+
+	destination = objectives.front();
+	objectives.pop_front();
+
+	sum = manhattanDist(origin, destination.status);
+
+	while (!objectives.empty())
+	{
+		sum += manhattanDist(destination.status, objectives.front().status);
+		destination = objectives.front();
+		objectives.pop_front();
+	}
+
+	return sum;
+}
+
 
 /**
  * 
@@ -541,8 +703,8 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 		 validNode,
 		 isOnClosed,
 		 isOnOpen,
-		 actHasBikini,
-		 actHasShoes;
+		 actHasBikini = hasBikini,
+		 actHasShoes = hasShoes;
 
 	list<aStarNode> open;
 	list<aStarNode>::iterator openFinder;
@@ -552,13 +714,10 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 	
 	list<Action> actualRoad;
 
-	estado actStatus, 
-		   auxStatus;
+	estado actStatus;
 	int actAccumCost;
 	Action actAction;
-
-	(mapaResultado[origin.fila][origin.columna]=='K' ? actHasBikini = true : actHasBikini = false);
-	(mapaResultado[origin.fila][origin.columna]=='D' ? actHasShoes = true : actHasShoes = false);
+	
 
 	aStarNode actNode, root(origin, 0, manhattanDist(origin, destination), theRoad, actHasBikini, actHasShoes), auxNode;
 	open.push_back(root);
@@ -568,7 +727,10 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 		actNode = open.front();
 		open.pop_front();
 
-		if(actNode.equalCoords(destination) && actNode.getAccumCost() <= 3000)
+	//	cout<<"PARENT NODE:"; actNode.printContents();
+	//	cout<<"ACTUAL OBJECTIVE: ["<<actDestination.fila<<"]["<<actDestination.columna<<"]"<<endl;
+
+		if(actNode.equalCoords(destination))
 		{
 			hasRoute = true;
 			break;
@@ -583,7 +745,6 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 			actAccumCost = actNode.getAccumCost();
 			actHasBikini = actNode.getIfHasBikini();
 			actHasShoes = actNode.getIfHasShoes();
-
 			actAction = (Action)i;
 
 			// Girar a la derecha o izquierda
@@ -698,10 +859,10 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 
 				aStarNode newNode(actStatus, actAccumCost, manhattanDist(actStatus, destination), actualRoad, actHasBikini, actHasShoes);
 
-			//	newNode.printContents();
-
 				isOnClosed = false;
 				isOnOpen = false;
+
+		//		cout<<"CHILD NODE";newNode.printContents();
 
 				closedFinder = closed.find(newNode);
 
@@ -746,8 +907,250 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 	if(hasRoute)
 	{
 		theRoad = actNode.getRoute();
-		cout<<"Ruta encontrada, longitud: "<<theRoad.size()<<endl;
-		cout<<"Nivel de batería al llegar al objetivo: "<<(3000 - actNode.getAccumCost())<<endl;
+	//	cout<<"### Ruta encontrada ###\nLongitud: "<<theRoad.size()<<endl;
+	//	cout<<"Batería: "<<actNode.getAccumCost()<<" ("<<(batteryLevel-actNode.getAccumCost())<<")"<<endl;
+	//	PintaPlan(theRoad);
+		VisualizaPlan(origin, theRoad);
+	}
+	else
+	{
+		cout<<"Ruta no encontrada."<<endl;
+	}
+	
+	return hasRoute;
+}
+
+/**
+ * [NIVEL 3]
+ */
+
+
+
+bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, const list<objective> &destination, list<Action> &theRoad)
+{
+	bool hasRoute = false, 
+		 validNode,
+		 isOnClosed,
+		 isOnOpen,
+		 actHasBikini = hasBikini,
+		 actHasShoes = hasShoes;
+
+	list<aStarNode> open;
+	list<aStarNode>::iterator openFinder;
+
+	map<aStarNode, aStarNode, isSameNodeMulti> closed;
+	map<aStarNode, aStarNode>::iterator closedFinder;
+	
+	list<Action> actualRoad;
+	list<objective> actObjectives;
+
+	estado actStatus;
+	objective actDestination;
+	int actAccumCost;
+	Action actAction;
+	
+
+	aStarNode actNode, root(origin, 0, multiManhattanDist(origin, destination), theRoad, actHasBikini, actHasShoes, destination), auxNode;
+	open.push_back(root);
+
+	while (!open.empty())
+	{
+		actNode = open.front();
+		actDestination = actNode.getActualObjective();
+		open.pop_front();
+
+	//	cout<<"PARENT NODE:"; actNode.printContents();
+	//	cout<<"ACTUAL OBJECTIVE: ["<<actDestination.fila<<"]["<<actDestination.columna<<"]"<<endl;
+
+		if(actNode.equalCoords(actDestination.status) && actNode.getAccumCost() <= 3000)
+		{
+	//		cout<<"-------------------- OBJECTIVO ENCONTRADO--------------------"<<endl;
+			if (actNode.getNumObjectives() == 1)
+			{
+				hasRoute = true;
+				break;
+			}
+			else
+			{
+				actNode.removeActualObjective();
+			}
+
+		}
+
+		closed.insert(pair<aStarNode, aStarNode>(actNode, actNode));
+
+		for (int i = 0; i < 3; i++)
+		{
+			validNode = false;
+			actStatus = actNode.getStatus();
+			actAccumCost = actNode.getAccumCost();
+			actHasBikini = actNode.getIfHasBikini();
+			actHasShoes = actNode.getIfHasShoes();
+			actObjectives = actNode.getObjectives();
+			actAction = (Action)i;
+
+			// Girar a la derecha o izquierda
+			if (i == actTURN_R || i == actTURN_L)
+			{
+				actStatus.orientacion = ( i == actTURN_L ? (actStatus.orientacion+3)%4 : (actStatus.orientacion+1)%4);
+				switch (mapaResultado[actStatus.fila][actStatus.columna])
+				{
+					case 'A':
+						if (actHasBikini)
+						{
+							actAccumCost += 5;
+						}
+						else
+						{
+							actAccumCost += 500;
+						}
+					break;
+					
+					case 'B':
+						if (actHasShoes)
+						{
+							actAccumCost += 1;
+						}
+						else
+						{
+							actAccumCost += 3;
+						}
+					break;
+
+					case 'K':
+						actAccumCost += 1;
+						actHasBikini = true;
+						actHasShoes = false;
+					break;
+
+					case 'D':
+						actAccumCost += 1;
+						actHasBikini = false;
+						actHasShoes = true;
+					break;
+
+					case 'T':
+						actAccumCost += 2;
+					break;
+
+					default:
+						actAccumCost += 1;
+					break;
+				}
+				validNode = true;
+			}
+
+			// Avanzar
+			if (i == actFORWARD)
+			{
+				switch (mapaResultado[actStatus.fila][actStatus.columna])
+				{
+					case 'A':
+						if (actHasBikini)
+						{
+							actAccumCost += 10;
+						}
+						else
+						{
+							actAccumCost += 200;
+						}
+					break;
+					
+					case 'B':
+						if (actHasShoes)
+						{
+							actAccumCost += 15;
+						}
+						else
+						{
+							actAccumCost += 100;
+						}
+					break;
+
+					case 'T':
+						actAccumCost += 2;
+					break;
+
+					case 'K':
+						actAccumCost += 1;
+						actHasBikini = true;
+						actHasShoes = false;
+					break;
+
+					case 'D':
+						actAccumCost += 1;
+						actHasBikini = false;
+						actHasShoes = true;
+					break;
+
+					default:
+						actAccumCost += 1;
+					break;
+				}
+				if(!HayObstaculoDelante(actStatus))
+				{
+					validNode = true;
+				}
+
+			}
+
+			if (validNode)
+			{
+				actualRoad = actNode.getRoute();
+				actualRoad.push_back(actAction);
+
+				aStarNode newNode(actStatus, actAccumCost, multiManhattanDist(actStatus, destination), actualRoad, actHasBikini, actHasShoes, actObjectives);
+
+				isOnClosed = false;
+				isOnOpen = false;
+
+		//		cout<<"CHILD NODE";newNode.printContents();
+
+				closedFinder = closed.find(newNode);
+
+				if(closedFinder != closed.end())
+				{
+					isOnClosed = true;
+					if(newNode.getAccumCost() < closedFinder->second.getAccumCost())
+					{
+						newNode.copy(closedFinder->second);
+						closed.erase(closedFinder);
+						open.push_back(newNode);
+					}
+				}
+
+				if(!isOnClosed)
+				{					
+					for (list<aStarNode>::iterator it = open.begin(); it != open.end(); ++it)
+					{
+
+						if (newNode.equalNode(*it))
+						{
+							isOnOpen = true;
+							if (newNode.getAccumCost() < it->getAccumCost())
+							{
+								it->copy(newNode);
+								break;
+							}	
+						}	
+					}
+				}
+
+				if(!isOnClosed && !isOnOpen)
+				{
+					open.push_back(newNode);
+				}			
+
+			}
+		}
+		open.sort(costCompare);
+	}
+
+	if(hasRoute)
+	{
+		theRoad = actNode.getRoute();
+	//	cout<<"### Ruta encontrada ###\nLongitud: "<<theRoad.size()<<endl;
+	//	cout<<"Batería: "<<actNode.getAccumCost()<<" ("<<(batteryLevel-actNode.getAccumCost())<<")"<<endl;
 		PintaPlan(theRoad);
 		VisualizaPlan(origin, theRoad);
 	}
@@ -757,4 +1160,206 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 	}
 	
 	return hasRoute;
+}
+/**
+ * [NIVEL 4]
+ */
+
+
+void ComportamientoJugador::checkForEnergyStations()
+{
+	objective energyLocator;
+	energyStations.clear();
+	for(int i=0; i<mapaResultado.size(); i++)
+	{
+		for(int j=0; j<mapaResultado[0].size(); j++)
+		{
+			if (mapaResultado[i][j] == 'X')
+			{
+				energyLocator.status.fila = i;
+				energyLocator.status.columna = j;
+				energyLocator.distToPlayer = manhattanDist(actual, energyLocator.status);
+				energyStations.push_back(energyLocator);
+			}
+		}
+	}
+	energyStations.sort(objSort);
+}
+
+bool ComportamientoJugador::isEnteringFog(const estado &status, const vector<unsigned char> &visualField)
+{
+	bool silentHill = false;
+
+	if (mapaResultado[status.fila][status.columna] == '?')
+	{
+		silentHill = true;
+	}
+	
+	switch (status.orientacion)
+	{
+		case 0:
+			for (int i = 1; i <= 3; i++)
+			{
+				for (int j = -i; j <= i; j++)
+				{
+					if (mapaResultado[status.fila-i][status.columna+j] == '?')
+					{
+						silentHill = true; 
+						break;
+					}
+					
+				}
+				if (silentHill)
+				{
+					break;
+				}
+			}
+		break;
+
+		case 1:
+			for (int i = 1; i <= 3; i++)
+			{
+				for (int j = -i; j <= i; j++)
+				{
+					if (mapaResultado[status.fila+j][status.columna+i] == '?')
+					{
+						silentHill = true; 
+						break;
+					}
+				}
+				if (silentHill)
+				{
+					break;
+				}
+			}
+		break;
+
+		case 2:
+			for (int i = 1; i <= 3; i++)
+			{
+				for (int j = i; j >= -i; j--)
+				{
+					if (mapaResultado[status.fila+i][status.columna+j] == '?')
+					{
+						silentHill = true; 
+						break;
+					}
+					
+				}
+				if (silentHill)
+				{
+					break;
+				}
+			}
+		break;
+
+		case 3:
+			for (int i = 1; i <= 3; i++)
+			{
+				for (int j = i; j >= -i; j--)
+				{
+					if (mapaResultado[status.fila+j][status.columna-i] == '?')
+					{
+						silentHill = true; 
+						break;
+					}
+					
+				}
+				if (silentHill)
+				{
+					break;
+				}
+			}
+		break;
+	}
+	return silentHill;
+}
+
+
+void ComportamientoJugador::removeFog(const estado &status, const vector<unsigned char> &visualField)
+{
+	mapaResultado[status.fila][status.columna] = visualField[0];
+
+	switch (status.orientacion)
+	{
+		case 0:
+			mapaResultado[status.fila-1][status.columna-1] 	= visualField[1];
+			mapaResultado[status.fila-1][status.columna] 	= visualField[2]; 
+			mapaResultado[status.fila-1][status.columna+1] 	= visualField[3];
+
+			mapaResultado[status.fila-2][status.columna-2] 	= visualField[4];
+			mapaResultado[status.fila-2][status.columna-1] 	= visualField[5];
+			mapaResultado[status.fila-2][status.columna] 	= visualField[6];
+			mapaResultado[status.fila-2][status.columna+1]	= visualField[7];
+			mapaResultado[status.fila-2][status.columna+2] 	= visualField[8];
+
+			mapaResultado[status.fila-3][status.columna-3] 	= visualField[9];
+			mapaResultado[status.fila-3][status.columna-2] 	= visualField[10];
+			mapaResultado[status.fila-3][status.columna-1] 	= visualField[11];
+			mapaResultado[status.fila-3][status.columna]   	= visualField[12];
+			mapaResultado[status.fila-3][status.columna+1] 	= visualField[13];
+			mapaResultado[status.fila-3][status.columna+2] 	= visualField[14];
+			mapaResultado[status.fila-3][status.columna+3] 	= visualField[15];
+		break;
+
+		case 1:
+			mapaResultado[status.fila-1][status.columna+1] 	= visualField[1];
+			mapaResultado[status.fila][status.columna+1] 	= visualField[2]; 
+			mapaResultado[status.fila+1][status.columna+1] 	= visualField[3];
+
+			mapaResultado[status.fila-2][status.columna+2] 	= visualField[4];
+			mapaResultado[status.fila-1][status.columna+2] 	= visualField[5];
+			mapaResultado[status.fila][status.columna+2] 	= visualField[6];
+			mapaResultado[status.fila+1][status.columna+2]	= visualField[7];
+			mapaResultado[status.fila+2][status.columna+2] 	= visualField[8];
+
+			mapaResultado[status.fila-3][status.columna+3] 	= visualField[9];
+			mapaResultado[status.fila-2][status.columna+3] 	= visualField[10];
+			mapaResultado[status.fila-1][status.columna+3] 	= visualField[11];
+			mapaResultado[status.fila][status.columna+3]   	= visualField[12];
+			mapaResultado[status.fila+1][status.columna+3] 	= visualField[13];
+			mapaResultado[status.fila+2][status.columna+3] 	= visualField[14];
+			mapaResultado[status.fila+3][status.columna+3] 	= visualField[15];
+		break;
+
+		case 2:
+			mapaResultado[status.fila+1][status.columna+1] 	= visualField[1];
+			mapaResultado[status.fila+1][status.columna] 	= visualField[2]; 
+			mapaResultado[status.fila+1][status.columna-1] 	= visualField[3];
+
+			mapaResultado[status.fila+2][status.columna+2] 	= visualField[4];
+			mapaResultado[status.fila+2][status.columna+1] 	= visualField[5];
+			mapaResultado[status.fila+2][status.columna] 	= visualField[6];
+			mapaResultado[status.fila+2][status.columna-1]	= visualField[7];
+			mapaResultado[status.fila+2][status.columna-2] 	= visualField[8];
+
+			mapaResultado[status.fila+3][status.columna+3] 	= visualField[9];
+			mapaResultado[status.fila+3][status.columna+2] 	= visualField[10];
+			mapaResultado[status.fila+3][status.columna+1] 	= visualField[11];
+			mapaResultado[status.fila+3][status.columna]   	= visualField[12];
+			mapaResultado[status.fila+3][status.columna-1] 	= visualField[13];
+			mapaResultado[status.fila+3][status.columna-2] 	= visualField[14];
+			mapaResultado[status.fila+3][status.columna-3] 	= visualField[15];
+		break;
+
+		case 3:
+			mapaResultado[status.fila+1][status.columna-1] 	= visualField[1];
+			mapaResultado[status.fila][status.columna-1] 	= visualField[2]; 
+			mapaResultado[status.fila-1][status.columna-1] 	= visualField[3];
+
+			mapaResultado[status.fila+2][status.columna-2] 	= visualField[4];
+			mapaResultado[status.fila+1][status.columna-2] 	= visualField[5];
+			mapaResultado[status.fila][status.columna-2] 	= visualField[6];
+			mapaResultado[status.fila-1][status.columna-2]	= visualField[7];
+			mapaResultado[status.fila-2][status.columna-2] 	= visualField[8];
+
+			mapaResultado[status.fila+3][status.columna-3] 	= visualField[9];
+			mapaResultado[status.fila+2][status.columna-3] 	= visualField[10];
+			mapaResultado[status.fila+1][status.columna-3] 	= visualField[11];
+			mapaResultado[status.fila][status.columna-3]   	= visualField[12];
+			mapaResultado[status.fila-1][status.columna-3] 	= visualField[13];
+			mapaResultado[status.fila-2][status.columna-3] 	= visualField[14];
+			mapaResultado[status.fila-3][status.columna-3] 	= visualField[15];
+		break;
+	}
 }

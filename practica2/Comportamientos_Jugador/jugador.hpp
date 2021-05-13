@@ -12,20 +12,30 @@ struct estado {
   int orientacion;
 };
 
+/* NIVEL 4*/
 struct objective
 {
   estado status;
   int distToPlayer;
 };
 
+/* NIVEL 4*/
+struct  enemy
+{
+  estado status;
+  int visualFieldIndex;
+};
+
+
 class ComportamientoJugador : public Comportamiento {
   public:
-    ComportamientoJugador(unsigned int size) : Comportamiento(size) {
+    /* NIVEL 4*/
+    ComportamientoJugador(unsigned int size) : Comportamiento(size) 
+    {
       // Inicializar Variables de Estado
       hayPlan = false;
       hasBikini = false;
       hasShoes = false;
-      objectiveCounter = 0;
       for (int i = 0; i < mapaResultado.size(); i++)
       {
         mapaResultado[i][0] = 'P';
@@ -46,7 +56,10 @@ class ComportamientoJugador : public Comportamiento {
       }
       
     }
-    ComportamientoJugador(std::vector< std::vector< unsigned char> > mapaR) : Comportamiento(mapaR) {
+    
+    /* NIVEL 0, 1, 2 y 3*/
+    ComportamientoJugador(std::vector< std::vector< unsigned char> > mapaR) : Comportamiento(mapaR) 
+    {
       // Inicializar Variables de Estado
       hayPlan = false;
       hasBikini = false;
@@ -64,7 +77,12 @@ class ComportamientoJugador : public Comportamiento {
     // Declarar Variables de Estado
     estado actual;
     objective currObj;
-    list<objective> objetivos, actualObjectives, energyStations;
+    list<objective> objetivos, 
+                    actualObjectives, 
+                    energyStations;
+
+    vector<enemy> enemiesNearby;
+
     list<Action> plan;
     bool hayPlan,
          hasBikini,
@@ -85,9 +103,14 @@ class ComportamientoJugador : public Comportamiento {
 
     void PintaPlan(list<Action> plan);
     bool HayObstaculoDelante(estado &st);
-    void removeFog(const estado &status, const vector<unsigned char> &visualField);
-    bool isEnteringFog(const estado &status, const vector<unsigned char> &visualField);
+
+    /* NIVEL 4 */
+    bool clearFog(const estado &status, const vector<unsigned char> &visualField);
     void checkForEnergyStations();
+    void checkEnemies(const estado &status, const vector<unsigned char> &enemyRadar);
+    void evadeEnemies();
+    void restoreMap(const vector<unsigned char> &visualField);
+
 };
 
 #endif

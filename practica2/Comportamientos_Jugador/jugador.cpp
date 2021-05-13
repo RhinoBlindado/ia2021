@@ -7,6 +7,7 @@
 #include <stack>
 #include <queue>
 #include <map>
+#include <algorithm>
 
 int manhattanDist(estado a, estado b);
 
@@ -51,6 +52,7 @@ Action ComportamientoJugador::think(Sensores sensores)
 		objetivos.push_back(aux);
 	}
 
+	// Se actualiza si el agente pasa por una casilla de bikini o de zapatillas.
 	if(mapaResultado[actual.fila][actual.columna] == 'K')
 	{
 		hasBikini = true;
@@ -63,8 +65,42 @@ Action ComportamientoJugador::think(Sensores sensores)
 		hasShoes = true;
 	}
 
+	// La funcionalidad del nivel 4 está contenida aquí dentro, en caso contrario se ignora.
 	if(sensores.nivel == 4)
 	{
+		//	Rellenar el mapa y devuelve verdadero si se está pasando por una zona desconocida del mapa.
+		if(clearFog(actual, sensores.terreno))
+		{
+			/* 
+			 * Si se está pasando por una zona recién descubierta y los sensores de proximidad más 
+			 * cercanos detectan: agua, bosques, muros o precipicios, entonces recalcular el plan.
+			 */
+			for (int i = 1; i <= 3; i++)
+			{
+				if (sensores.terreno[i] == 'A' || 
+					sensores.terreno[i] == 'B' || 
+					sensores.terreno[i] == 'M' || 
+					sensores.terreno[i] == 'P')
+				{
+					hayPlan = false;
+				}
+			}
+		}
+	
+		// Verificar el sensor de superficie por la presencia de aldeanos.
+		checkEnemies(actual, sensores.superficie);
+
+		// Si hay aldeanos cercanos...
+		if (!enemiesNearby.empty())
+		{
+			//... si un aldeanos
+			evadeEnemies();
+			if (sensores.colision)
+			{
+				hayPlan = false;
+			}
+		}
+		
 		if (actual.fila == currObj.status.fila && actual.columna == currObj.status.columna && lowBattery)
 		{
 			plan.push_back(actIDLE);
@@ -77,13 +113,8 @@ Action ComportamientoJugador::think(Sensores sensores)
 			}				
 		}
 
-		if(isEnteringFog(actual, sensores.terreno))
-		{
-			removeFog(actual, sensores.terreno);
-			hayPlan = false;
-		}
 
-		if (batteryLevel < 1700)
+		if (batteryLevel < 1500)
 		{
 			checkForEnergyStations();
 			if (!energyStations.empty())
@@ -103,11 +134,11 @@ Action ComportamientoJugador::think(Sensores sensores)
 				actualObjectives.sort(objSort);
 			}
 			currObj = actualObjectives.front();
-			cout<<"OBJETIVO ACTUAL ES"<<currObj.status.fila<<" "<<currObj.status.columna<<endl;
 		}
 	}
 
-	if(!hayPlan || plan.empty())
+
+	if(!hayPlan || (plan.empty() && sensores.nivel == 4)
 	{
 		plan.clear();
 		hayPlan = pathFinding(sensores.nivel, actual, objetivos, currObj, plan);
@@ -115,22 +146,16 @@ Action ComportamientoJugador::think(Sensores sensores)
 
 	Action sigAccion;
 
-	if (sensores.colision)
-	{
-		cout<<"COLISION!"<<endl;
-		hayPlan = false;
-		sigAccion = actIDLE;
-	}
-
 	if(hayPlan && plan.size() > 0)
 	{
 		sigAccion = plan.front();
 		plan.erase(plan.begin());
 	}
-	else
+
+	if(!enemiesNearby.empty())
 	{
-		cout<<"ERROR: No se pudo encontrar un plan."<<endl;
-	}	
+		restoreMap(sensores.terreno);
+	}
 
   	return sigAccion;
 }
@@ -475,6 +500,33 @@ bool ComportamientoJugador::pathFinding_Anchura(const estado &origen, const esta
  * 		[NIVEL 2] | [NIVEL 3]
  */
 
+bool haveSameObjectivesOpen(list<objective> a, list<objective> b)
+{
+
+	if(a.empty() && b.empty())
+	{
+		return true;
+	}
+	
+	if (a.size() != b.size())
+	{
+		return false;
+	}
+	
+	list<objective>::iterator bIter = b.begin();
+	
+	for (list<objective>::iterator aIter = a.begin(); aIter != a.end(); ++aIter) 
+	{
+		if (aIter->status.fila != bIter->status.fila || aIter->status.columna != bIter->status.columna)
+		{
+			return false;
+		}
+
+		++bIter;	
+	}
+	return true;
+}
+
 /**
  * 
  */
@@ -563,6 +615,16 @@ class aStarNode
 			cout<<"\tNode ["<<nodeStatus.fila<<"]["<<nodeStatus.columna<<"]("<<nodeStatus.orientacion<<") K("<<hasBikini<<") S("<<hasShoes<<") | f("<<totalCost<<")=g("<<accumCost<<")+h("<<expectedCost<<") Road size="<<routeSoFar.size()<<" Objectives="<<currentObjectives.size()<<endl;
 		}
 
+		void printObjs()
+		{
+			cout<<"| Objs [ ";
+			for (list<objective>::iterator aIter = this->currentObjectives.begin(); aIter != this->currentObjectives.end(); ++aIter) 
+			{
+				cout<<"["<<aIter->status.fila<<"]["<<aIter->status.columna<<"] "; 
+			}
+			cout<<"]"<<endl;
+		}
+
 		bool equalCoords(estado argStatus) const
 		{
 			return this->nodeStatus.fila == argStatus.fila && this->nodeStatus.columna == argStatus.columna;
@@ -575,7 +637,7 @@ class aStarNode
 					this->nodeStatus.orientacion == arg.nodeStatus.orientacion &&
 					this->hasBikini == arg.hasBikini &&
 					this->hasShoes == arg.hasShoes &&
-					this->currentObjectives.size() == arg.currentObjectives.size();
+					haveSameObjectivesOpen(this->currentObjectives, arg.currentObjectives);
 		}
 
 		list<Action> getRoute() const
@@ -645,22 +707,31 @@ class isSameNode
 		}
 };
 
-class isSameNodeMulti
+
+bool haveSameObjectivesClosed(list<objective> a, list<objective> b)
 {
-	public:
-		bool operator()(const aStarNode &a, const aStarNode &b)
-		{			
-			if ((a.getStatus().fila > b.getStatus().fila) or 
-				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna > b.getStatus().columna) or
-	      		(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion > b.getStatus().orientacion) ||
-				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && (int)a.getIfHasBikini() > (int)b.getIfHasBikini()) ||
-				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && a.getIfHasBikini() == b.getIfHasBikini() && (int)a.getIfHasShoes() > (int)b.getIfHasShoes()) ||
-				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && a.getIfHasBikini() == b.getIfHasBikini() && a.getIfHasShoes() == b.getIfHasShoes() && a.getNumObjectives() > b.getNumObjectives()))
+	if (a.size() > b.size())
+	{
+		return true;
+	}
+	else if(a.size() == b.size())
+	{
+		list<objective>::iterator bIter = b.begin();
+		
+		for (list<objective>::iterator aIter = a.begin(); aIter != a.end(); ++aIter) 
+		{
+			if ((aIter->status.fila > bIter->status.fila) || 
+			    (aIter->status.fila == bIter->status.fila && aIter->status.columna > bIter->status.columna))
+			{
 				return true;
-			else
-				return false;
+			}
+
+			++bIter;	
 		}
-};
+		return false;
+	}
+	else return false;
+} 
 
 /**
  * @brief Calcular la distancia Manhattan entre dos puntos.
@@ -673,30 +744,7 @@ int manhattanDist(estado origin, estado destination)
 	return abs(origin.fila - destination.fila) + abs(origin.columna - destination.columna);
 }
 
-int multiManhattanDist(estado origin, list<objective> objectives)
-{
-	int sum = 0;
-	objective destination;
 
-	destination = objectives.front();
-	objectives.pop_front();
-
-	sum = manhattanDist(origin, destination.status);
-
-	while (!objectives.empty())
-	{
-		sum += manhattanDist(destination.status, objectives.front().status);
-		destination = objectives.front();
-		objectives.pop_front();
-	}
-
-	return sum;
-}
-
-
-/**
- * 
- */
 bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const estado &destination, list<Action> &theRoad)
 {
 	bool hasRoute = false, 
@@ -706,8 +754,8 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 		 actHasBikini = hasBikini,
 		 actHasShoes = hasShoes;
 
-	list<aStarNode> open;
-	list<aStarNode>::iterator openFinder;
+	multiset<aStarNode,bool(*)(const aStarNode&, const aStarNode&)> open (costCompare);
+	multiset<aStarNode>::iterator openFinder;
 
 	map<aStarNode, aStarNode, isSameNode> closed;
 	map<aStarNode, aStarNode>::iterator closedFinder;
@@ -720,15 +768,13 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 	
 
 	aStarNode actNode, root(origin, 0, manhattanDist(origin, destination), theRoad, actHasBikini, actHasShoes), auxNode;
-	open.push_back(root);
+	open.insert(root);
 
 	while (!open.empty())
 	{
-		actNode = open.front();
-		open.pop_front();
-
-	//	cout<<"PARENT NODE:"; actNode.printContents();
-	//	cout<<"ACTUAL OBJECTIVE: ["<<actDestination.fila<<"]["<<actDestination.columna<<"]"<<endl;
+		openFinder = open.begin();
+		actNode = *openFinder;
+		open.erase(openFinder);
 
 		if(actNode.equalCoords(destination))
 		{
@@ -841,15 +887,16 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 						actHasShoes = true;
 					break;
 
+
 					default:
 						actAccumCost += 1;
 					break;
 				}
+				
 				if(!HayObstaculoDelante(actStatus))
 				{
 					validNode = true;
 				}
-
 			}
 
 			if (validNode)
@@ -862,8 +909,6 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 				isOnClosed = false;
 				isOnOpen = false;
 
-		//		cout<<"CHILD NODE";newNode.printContents();
-
 				closedFinder = closed.find(newNode);
 
 				if(closedFinder != closed.end())
@@ -873,43 +918,38 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 					{
 						newNode.copy(closedFinder->second);
 						closed.erase(closedFinder);
-						open.push_back(newNode);
+						open.insert(newNode);
 					}
 				}
 
 				if(!isOnClosed)
-				{					
-					for (list<aStarNode>::iterator it = open.begin(); it != open.end(); ++it)
+				{		
+					for (multiset<aStarNode>::iterator it = open.begin(); it != open.end(); ++it)
 					{
-
 						if (newNode.equalNode(*it))
 						{
 							isOnOpen = true;
 							if (newNode.getAccumCost() < it->getAccumCost())
 							{
-								it->copy(newNode);
-								break;
-							}	
+								open.erase(it);
+								open.insert(newNode);
+							}
+							break;
 						}	
 					}
 				}
 
 				if(!isOnClosed && !isOnOpen)
 				{
-					open.push_back(newNode);
+					open.insert(newNode);
 				}			
-
 			}
 		}
-		open.sort(costCompare);
 	}
 
 	if(hasRoute)
 	{
 		theRoad = actNode.getRoute();
-	//	cout<<"### Ruta encontrada ###\nLongitud: "<<theRoad.size()<<endl;
-	//	cout<<"Batería: "<<actNode.getAccumCost()<<" ("<<(batteryLevel-actNode.getAccumCost())<<")"<<endl;
-	//	PintaPlan(theRoad);
 		VisualizaPlan(origin, theRoad);
 	}
 	else
@@ -924,6 +964,43 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
  * [NIVEL 3]
  */
 
+class isSameNodeMulti
+{
+	public:
+		bool operator()(const aStarNode &a, const aStarNode &b)
+		{			
+			if ((a.getStatus().fila > b.getStatus().fila) or 
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna > b.getStatus().columna) or
+	      		(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion > b.getStatus().orientacion) ||
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && (int)a.getIfHasBikini() > (int)b.getIfHasBikini()) ||
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && a.getIfHasBikini() == b.getIfHasBikini() && (int)a.getIfHasShoes() > (int)b.getIfHasShoes()) ||
+				(a.getStatus().fila == b.getStatus().fila and a.getStatus().columna == b.getStatus().columna and a.getStatus().orientacion == b.getStatus().orientacion && a.getIfHasBikini() == b.getIfHasBikini() && a.getIfHasShoes() == b.getIfHasShoes() && haveSameObjectivesClosed(a.getObjectives(), b.getObjectives())))
+				return true;
+			else
+				return false;
+		}
+};
+
+
+int multiManhattanDist(estado origin, list<objective> objectives)
+{
+	int sum = 0;
+	objective destination;
+
+	destination = objectives.front();
+	objectives.pop_front();
+
+	sum = manhattanDist(origin, destination.status);
+
+	while (!objectives.empty())
+	{
+		sum += manhattanDist(destination.status, objectives.front().status);
+		destination = objectives.front();
+		objectives.pop_front();
+	}
+
+	return sum;
+}
 
 
 bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, const list<objective> &destination, list<Action> &theRoad)
@@ -933,10 +1010,11 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 		 isOnClosed,
 		 isOnOpen,
 		 actHasBikini = hasBikini,
-		 actHasShoes = hasShoes;
+		 actHasShoes = hasShoes,
+		 scrambleObjectives = true;
 
-	list<aStarNode> open;
-	list<aStarNode>::iterator openFinder;
+	multiset<aStarNode,bool(*)(const aStarNode&, const aStarNode&)> open (costCompare);
+	multiset<aStarNode>::iterator openFinder;
 
 	map<aStarNode, aStarNode, isSameNodeMulti> closed;
 	map<aStarNode, aStarNode>::iterator closedFinder;
@@ -946,25 +1024,21 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 
 	estado actStatus;
 	objective actDestination;
-	int actAccumCost;
+	int actAccumCost, i = 0;
 	Action actAction;
 	
-
 	aStarNode actNode, root(origin, 0, multiManhattanDist(origin, destination), theRoad, actHasBikini, actHasShoes, destination), auxNode;
-	open.push_back(root);
+	open.insert(root);
 
 	while (!open.empty())
 	{
-		actNode = open.front();
+		openFinder = open.begin();
+		actNode = *openFinder;
+		open.erase(openFinder);
 		actDestination = actNode.getActualObjective();
-		open.pop_front();
 
-	//	cout<<"PARENT NODE:"; actNode.printContents();
-	//	cout<<"ACTUAL OBJECTIVE: ["<<actDestination.fila<<"]["<<actDestination.columna<<"]"<<endl;
-
-		if(actNode.equalCoords(actDestination.status) && actNode.getAccumCost() <= 3000)
+		if(actNode.equalCoords(actDestination.status))
 		{
-	//		cout<<"-------------------- OBJECTIVO ENCONTRADO--------------------"<<endl;
 			if (actNode.getNumObjectives() == 1)
 			{
 				hasRoute = true;
@@ -973,184 +1047,198 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 			else
 			{
 				actNode.removeActualObjective();
+				scrambleObjectives = true;
 			}
 
 		}
 
 		closed.insert(pair<aStarNode, aStarNode>(actNode, actNode));
-
-		for (int i = 0; i < 3; i++)
+			
+		actObjectives = actNode.getObjectives();
+		do 
 		{
-			validNode = false;
-			actStatus = actNode.getStatus();
-			actAccumCost = actNode.getAccumCost();
-			actHasBikini = actNode.getIfHasBikini();
-			actHasShoes = actNode.getIfHasShoes();
-			actObjectives = actNode.getObjectives();
-			actAction = (Action)i;
-
-			// Girar a la derecha o izquierda
-			if (i == actTURN_R || i == actTURN_L)
+			if(scrambleObjectives && actObjectives.size() > 1)
 			{
-				actStatus.orientacion = ( i == actTURN_L ? (actStatus.orientacion+3)%4 : (actStatus.orientacion+1)%4);
-				switch (mapaResultado[actStatus.fila][actStatus.columna])
-				{
-					case 'A':
-						if (actHasBikini)
-						{
-							actAccumCost += 5;
-						}
-						else
-						{
-							actAccumCost += 500;
-						}
-					break;
-					
-					case 'B':
-						if (actHasShoes)
-						{
-							actAccumCost += 1;
-						}
-						else
-						{
-							actAccumCost += 3;
-						}
-					break;
-
-					case 'K':
-						actAccumCost += 1;
-						actHasBikini = true;
-						actHasShoes = false;
-					break;
-
-					case 'D':
-						actAccumCost += 1;
-						actHasBikini = false;
-						actHasShoes = true;
-					break;
-
-					case 'T':
-						actAccumCost += 2;
-					break;
-
-					default:
-						actAccumCost += 1;
-					break;
-				}
-				validNode = true;
+				actObjectives.push_back(actObjectives.front());
+				actObjectives.pop_front();
 			}
+			
+			i++;
 
-			// Avanzar
-			if (i == actFORWARD)
+			for (int j = 0; j < 3; j++)
 			{
-				switch (mapaResultado[actStatus.fila][actStatus.columna])
+				validNode = false;
+				actStatus = actNode.getStatus();
+				actAccumCost = actNode.getAccumCost();
+				actHasBikini = actNode.getIfHasBikini();
+				actHasShoes = actNode.getIfHasShoes();
+				actAction = (Action)j;
+
+				// Girar a la derecha o izquierda
+				if (j == actTURN_R || j == actTURN_L)
 				{
-					case 'A':
-						if (actHasBikini)
-						{
-							actAccumCost += 10;
-						}
-						else
-						{
-							actAccumCost += 200;
-						}
-					break;
-					
-					case 'B':
-						if (actHasShoes)
-						{
-							actAccumCost += 15;
-						}
-						else
-						{
-							actAccumCost += 100;
-						}
-					break;
+					actStatus.orientacion = ( j == actTURN_L ? (actStatus.orientacion+3)%4 : (actStatus.orientacion+1)%4);
+					switch (mapaResultado[actStatus.fila][actStatus.columna])
+					{
+						case 'A':
+							if (actHasBikini)
+							{
+								actAccumCost += 5;
+							}
+							else
+							{
+								actAccumCost += 500;
+							}
+						break;
+						
+						case 'B':
+							if (actHasShoes)
+							{
+								actAccumCost += 1;
+							}
+							else
+							{
+								actAccumCost += 3;
+							}
+						break;
 
-					case 'T':
-						actAccumCost += 2;
-					break;
+						case 'K':
+							actAccumCost += 1;
+							actHasBikini = true;
+							actHasShoes = false;
+						break;
 
-					case 'K':
-						actAccumCost += 1;
-						actHasBikini = true;
-						actHasShoes = false;
-					break;
+						case 'D':
+							actAccumCost += 1;
+							actHasBikini = false;
+							actHasShoes = true;
+						break;
 
-					case 'D':
-						actAccumCost += 1;
-						actHasBikini = false;
-						actHasShoes = true;
-					break;
+						case 'T':
+							actAccumCost += 2;
+						break;
 
-					default:
-						actAccumCost += 1;
-					break;
-				}
-				if(!HayObstaculoDelante(actStatus))
-				{
+						default:
+							actAccumCost += 1;
+						break;
+					}
 					validNode = true;
 				}
 
-			}
-
-			if (validNode)
-			{
-				actualRoad = actNode.getRoute();
-				actualRoad.push_back(actAction);
-
-				aStarNode newNode(actStatus, actAccumCost, multiManhattanDist(actStatus, destination), actualRoad, actHasBikini, actHasShoes, actObjectives);
-
-				isOnClosed = false;
-				isOnOpen = false;
-
-		//		cout<<"CHILD NODE";newNode.printContents();
-
-				closedFinder = closed.find(newNode);
-
-				if(closedFinder != closed.end())
+				// Avanzar
+				if (j == actFORWARD)
 				{
-					isOnClosed = true;
-					if(newNode.getAccumCost() < closedFinder->second.getAccumCost())
+					switch (mapaResultado[actStatus.fila][actStatus.columna])
 					{
-						newNode.copy(closedFinder->second);
-						closed.erase(closedFinder);
-						open.push_back(newNode);
+						case 'A':
+							if (actHasBikini)
+							{
+								actAccumCost += 10;
+							}
+							else
+							{
+								actAccumCost += 200;
+							}
+						break;
+						
+						case 'B':
+							if (actHasShoes)
+							{
+								actAccumCost += 15;
+							}
+							else
+							{
+								actAccumCost += 100;
+							}
+						break;
+
+						case 'T':
+							actAccumCost += 2;
+						break;
+
+						case 'K':
+							actAccumCost += 1;
+							actHasBikini = true;
+							actHasShoes = false;
+						break;
+
+						case 'D':
+							actAccumCost += 1;
+							actHasBikini = false;
+							actHasShoes = true;
+						break;
+
+						default:
+							actAccumCost += 1;
+						break;
 					}
+					if(!HayObstaculoDelante(actStatus))
+					{
+						validNode = true;
+					}
+
 				}
 
-				if(!isOnClosed)
-				{					
-					for (list<aStarNode>::iterator it = open.begin(); it != open.end(); ++it)
-					{
+				if (validNode)
+				{
+					actualRoad = actNode.getRoute();
+					actualRoad.push_back(actAction);
 
-						if (newNode.equalNode(*it))
+					aStarNode newNode(actStatus, actAccumCost, multiManhattanDist(actStatus, destination), actualRoad, actHasBikini, actHasShoes, actObjectives);
+
+					isOnClosed = false;
+					isOnOpen = false;
+
+					closedFinder = closed.find(newNode);
+
+					if(closedFinder != closed.end())
+					{
+						isOnClosed = true;
+						if(newNode.getAccumCost() < closedFinder->second.getAccumCost())
 						{
-							isOnOpen = true;
-							if (newNode.getAccumCost() < it->getAccumCost())
+							newNode.copy(closedFinder->second);
+							closed.erase(closedFinder);
+							open.insert(newNode);
+						}
+					}
+
+					if(!isOnClosed)
+					{					
+						for (multiset<aStarNode>::iterator it = open.begin(); it != open.end(); ++it)
+						{
+							if (newNode.equalNode(*it))
 							{
-								it->copy(newNode);
+								isOnOpen = true;
+								if (newNode.getAccumCost() < it->getAccumCost())
+								{
+									open.erase(it);
+									open.insert(newNode);
+								}
 								break;
 							}	
-						}	
+						}
 					}
+
+					if(!isOnClosed && !isOnOpen)
+					{
+						open.insert(newNode);
+					}			
+
 				}
-
-				if(!isOnClosed && !isOnOpen)
-				{
-					open.push_back(newNode);
-				}			
-
 			}
+
+		if (i == 3)
+		{
+			scrambleObjectives = false;
+			i = 0;
 		}
-		open.sort(costCompare);
+
+		}while(scrambleObjectives);
 	}
 
 	if(hasRoute)
 	{
 		theRoad = actNode.getRoute();
-	//	cout<<"### Ruta encontrada ###\nLongitud: "<<theRoad.size()<<endl;
-	//	cout<<"Batería: "<<actNode.getAccumCost()<<" ("<<(batteryLevel-actNode.getAccumCost())<<")"<<endl;
 		PintaPlan(theRoad);
 		VisualizaPlan(origin, theRoad);
 	}
@@ -1165,7 +1253,9 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
  * [NIVEL 4]
  */
 
-
+/**
+ * @brief Chequea el mapa por si se han descubierto estaciones de recarga, las almacena en la lista 'energyStations'
+ */
 void ComportamientoJugador::checkForEnergyStations()
 {
 	objective energyLocator;
@@ -1186,13 +1276,13 @@ void ComportamientoJugador::checkForEnergyStations()
 	energyStations.sort(objSort);
 }
 
-bool ComportamientoJugador::isEnteringFog(const estado &status, const vector<unsigned char> &visualField)
+bool ComportamientoJugador::clearFog(const estado &status, const vector<unsigned char> &visualField)
 {
 	bool silentHill = false;
-
+	int k = 1;
 	if (mapaResultado[status.fila][status.columna] == '?')
 	{
-		silentHill = true;
+		mapaResultado[status.fila][status.columna] = visualField[0];
 	}
 	
 	switch (status.orientacion)
@@ -1204,14 +1294,11 @@ bool ComportamientoJugador::isEnteringFog(const estado &status, const vector<uns
 				{
 					if (mapaResultado[status.fila-i][status.columna+j] == '?')
 					{
-						silentHill = true; 
-						break;
+						silentHill = true;
+						mapaResultado[status.fila-i][status.columna+j] =  visualField[k];
 					}
+					k++;
 					
-				}
-				if (silentHill)
-				{
-					break;
 				}
 			}
 		break;
@@ -1223,13 +1310,10 @@ bool ComportamientoJugador::isEnteringFog(const estado &status, const vector<uns
 				{
 					if (mapaResultado[status.fila+j][status.columna+i] == '?')
 					{
-						silentHill = true; 
-						break;
+						silentHill = true;
+						mapaResultado[status.fila+j][status.columna+i] = visualField[k];
 					}
-				}
-				if (silentHill)
-				{
-					break;
+					k++;
 				}
 			}
 		break;
@@ -1241,14 +1325,10 @@ bool ComportamientoJugador::isEnteringFog(const estado &status, const vector<uns
 				{
 					if (mapaResultado[status.fila+i][status.columna+j] == '?')
 					{
-						silentHill = true; 
-						break;
+						silentHill = true;
+						mapaResultado[status.fila+i][status.columna+j] = visualField[k];
 					}
-					
-				}
-				if (silentHill)
-				{
-					break;
+					k++;
 				}
 			}
 		break;
@@ -1260,106 +1340,110 @@ bool ComportamientoJugador::isEnteringFog(const estado &status, const vector<uns
 				{
 					if (mapaResultado[status.fila+j][status.columna-i] == '?')
 					{
-						silentHill = true; 
-						break;
+						silentHill = true;
+						mapaResultado[status.fila+j][status.columna-i] = visualField[k];
 					}
-					
+					k++;
 				}
-				if (silentHill)
-				{
-					break;
-				}
+
 			}
 		break;
 	}
 	return silentHill;
 }
 
-
-void ComportamientoJugador::removeFog(const estado &status, const vector<unsigned char> &visualField)
+void ComportamientoJugador::checkEnemies(const estado &status, const vector<unsigned char> &enemyRadar)
 {
-	mapaResultado[status.fila][status.columna] = visualField[0];
+	enemiesNearby.clear();
+	int k = 1;
+	enemy aux;
 
 	switch (status.orientacion)
 	{
 		case 0:
-			mapaResultado[status.fila-1][status.columna-1] 	= visualField[1];
-			mapaResultado[status.fila-1][status.columna] 	= visualField[2]; 
-			mapaResultado[status.fila-1][status.columna+1] 	= visualField[3];
+			for (int i = 1; i <= 3; i++)
+			{
+				for (int j = -i; j <= i; j++)
+				{
+					if (enemyRadar[k] == 'a')
+					{
+						aux.status.fila = status.fila - i;
+						aux.status.columna = status.columna + j;
+						aux.visualFieldIndex = k;
+						enemiesNearby.push_back(aux);
+					}
+					k++;
+				}
 
-			mapaResultado[status.fila-2][status.columna-2] 	= visualField[4];
-			mapaResultado[status.fila-2][status.columna-1] 	= visualField[5];
-			mapaResultado[status.fila-2][status.columna] 	= visualField[6];
-			mapaResultado[status.fila-2][status.columna+1]	= visualField[7];
-			mapaResultado[status.fila-2][status.columna+2] 	= visualField[8];
-
-			mapaResultado[status.fila-3][status.columna-3] 	= visualField[9];
-			mapaResultado[status.fila-3][status.columna-2] 	= visualField[10];
-			mapaResultado[status.fila-3][status.columna-1] 	= visualField[11];
-			mapaResultado[status.fila-3][status.columna]   	= visualField[12];
-			mapaResultado[status.fila-3][status.columna+1] 	= visualField[13];
-			mapaResultado[status.fila-3][status.columna+2] 	= visualField[14];
-			mapaResultado[status.fila-3][status.columna+3] 	= visualField[15];
+			}
 		break;
 
 		case 1:
-			mapaResultado[status.fila-1][status.columna+1] 	= visualField[1];
-			mapaResultado[status.fila][status.columna+1] 	= visualField[2]; 
-			mapaResultado[status.fila+1][status.columna+1] 	= visualField[3];
-
-			mapaResultado[status.fila-2][status.columna+2] 	= visualField[4];
-			mapaResultado[status.fila-1][status.columna+2] 	= visualField[5];
-			mapaResultado[status.fila][status.columna+2] 	= visualField[6];
-			mapaResultado[status.fila+1][status.columna+2]	= visualField[7];
-			mapaResultado[status.fila+2][status.columna+2] 	= visualField[8];
-
-			mapaResultado[status.fila-3][status.columna+3] 	= visualField[9];
-			mapaResultado[status.fila-2][status.columna+3] 	= visualField[10];
-			mapaResultado[status.fila-1][status.columna+3] 	= visualField[11];
-			mapaResultado[status.fila][status.columna+3]   	= visualField[12];
-			mapaResultado[status.fila+1][status.columna+3] 	= visualField[13];
-			mapaResultado[status.fila+2][status.columna+3] 	= visualField[14];
-			mapaResultado[status.fila+3][status.columna+3] 	= visualField[15];
+			for (int i = 1; i <= 3; i++)
+			{
+				for (int j = -i; j <= i; j++)
+				{
+					if (enemyRadar[k] == 'a')
+					{
+						aux.status.fila = status.fila + j;
+						aux.status.columna = status.columna + i;
+						aux.visualFieldIndex = k;
+						enemiesNearby.push_back(aux);
+					}
+					k++;
+				}
+			}
 		break;
 
 		case 2:
-			mapaResultado[status.fila+1][status.columna+1] 	= visualField[1];
-			mapaResultado[status.fila+1][status.columna] 	= visualField[2]; 
-			mapaResultado[status.fila+1][status.columna-1] 	= visualField[3];
-
-			mapaResultado[status.fila+2][status.columna+2] 	= visualField[4];
-			mapaResultado[status.fila+2][status.columna+1] 	= visualField[5];
-			mapaResultado[status.fila+2][status.columna] 	= visualField[6];
-			mapaResultado[status.fila+2][status.columna-1]	= visualField[7];
-			mapaResultado[status.fila+2][status.columna-2] 	= visualField[8];
-
-			mapaResultado[status.fila+3][status.columna+3] 	= visualField[9];
-			mapaResultado[status.fila+3][status.columna+2] 	= visualField[10];
-			mapaResultado[status.fila+3][status.columna+1] 	= visualField[11];
-			mapaResultado[status.fila+3][status.columna]   	= visualField[12];
-			mapaResultado[status.fila+3][status.columna-1] 	= visualField[13];
-			mapaResultado[status.fila+3][status.columna-2] 	= visualField[14];
-			mapaResultado[status.fila+3][status.columna-3] 	= visualField[15];
+			for (int i = 1; i <= 3; i++)
+			{
+				for (int j = i; j >= -i; j--)
+				{
+					if (enemyRadar[k] == 'a')
+					{
+						aux.status.fila = status.fila + i;
+						aux.status.columna = status.columna + j;
+						aux.visualFieldIndex = k;
+						enemiesNearby.push_back(aux);
+					}
+					k++;		
+				}
+			}
 		break;
 
 		case 3:
-			mapaResultado[status.fila+1][status.columna-1] 	= visualField[1];
-			mapaResultado[status.fila][status.columna-1] 	= visualField[2]; 
-			mapaResultado[status.fila-1][status.columna-1] 	= visualField[3];
-
-			mapaResultado[status.fila+2][status.columna-2] 	= visualField[4];
-			mapaResultado[status.fila+1][status.columna-2] 	= visualField[5];
-			mapaResultado[status.fila][status.columna-2] 	= visualField[6];
-			mapaResultado[status.fila-1][status.columna-2]	= visualField[7];
-			mapaResultado[status.fila-2][status.columna-2] 	= visualField[8];
-
-			mapaResultado[status.fila+3][status.columna-3] 	= visualField[9];
-			mapaResultado[status.fila+2][status.columna-3] 	= visualField[10];
-			mapaResultado[status.fila+1][status.columna-3] 	= visualField[11];
-			mapaResultado[status.fila][status.columna-3]   	= visualField[12];
-			mapaResultado[status.fila-1][status.columna-3] 	= visualField[13];
-			mapaResultado[status.fila-2][status.columna-3] 	= visualField[14];
-			mapaResultado[status.fila-3][status.columna-3] 	= visualField[15];
+			for (int i = 1; i <= 3; i++)
+			{
+				for (int j = i; j >= -i; j--)
+				{
+					if (enemyRadar[k] == 'a')
+					{
+						aux.status.fila = status.fila + j;
+						aux.status.columna = status.columna - i;
+						aux.visualFieldIndex = k;
+						enemiesNearby.push_back(aux);
+					}
+					k++;
+				}
+			}
 		break;
+	}
+}
+
+void ComportamientoJugador::evadeEnemies()
+{
+	for (int i = 0; i < enemiesNearby.size(); i++)
+	{
+		mapaResultado[enemiesNearby[i].status.fila][enemiesNearby[i].status.columna] = 'M';
+	}
+	
+}
+
+void ComportamientoJugador::restoreMap(const vector<unsigned char> &visualField)
+{
+	for (int i = 0; i < enemiesNearby.size(); i++)
+	{
+		mapaResultado[enemiesNearby[i].status.fila][enemiesNearby[i].status.columna] = visualField[enemiesNearby[i].visualFieldIndex];
 	}
 }

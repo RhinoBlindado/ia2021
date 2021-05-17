@@ -13,13 +13,23 @@ struct estado {
 };
 
 /* NIVEL 4*/
+/**
+ * @brief Registro sencillo para mantener tanto el estado de un objetivo como la distancia Manhattan hacia el jugador, esta distancia
+ *        se utiliza para determinar que objetivo se busca primero.
+ * @param status  Ubicación del objetivo.
+ * @param distToPlayer Distancia Manhattan del objetivo al jugador.
+ */
 struct objective
 {
   estado status;
   int distToPlayer;
 };
 
-/* NIVEL 4*/
+/**
+ * @brief Registro que almacena el estado del enemigo y en qué componente del vector de sensores.superficie fue observado el enemigo.
+ * @param status  Ubicación del enemigo.
+ * @param visualFieldIndex  Índice del vector de superficie donde fue observado el enemigo.
+ */
 struct  enemy
 {
   estado status;
@@ -36,6 +46,8 @@ class ComportamientoJugador : public Comportamiento {
       hayPlan = false;
       hasBikini = false;
       hasShoes = false;
+
+      // Ya que todos los mapas poseen siempre un borde de 3 casillas de precipicios, esto se rellena automáticamente.
       for (int i = 0; i < mapaResultado.size(); i++)
       {
         mapaResultado[i][0] = 'P';
@@ -84,6 +96,7 @@ class ComportamientoJugador : public Comportamiento {
     vector<enemy> enemiesNearby;
 
     list<Action> plan;
+    
     bool hayPlan,
          hasBikini,
          hasShoes,

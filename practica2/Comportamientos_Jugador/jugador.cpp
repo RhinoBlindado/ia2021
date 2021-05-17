@@ -7,15 +7,27 @@
 #include <stack>
 #include <queue>
 #include <map>
-#include <algorithm>
 
-int manhattanDist(estado a, estado b);
+// Declaración de la función, la implementación está más abajo.
+int manhattanDist(const estado &a, const estado &b);
 
+/**
+ * @brief Función auxiliar utilizada para ordenar la lista de objetivos en orden del más cercano al agente.
+ * @param	a	Un objetivo cualquiera
+ * @param	b	Otro objetibo cualquiera
+ * @returns Verdadero si a está más cerca que b del agente, Falso en caso contrario.
+ */
 bool objSort(const objective &a, const objective &b)
 {
 	return a.distToPlayer < b.distToPlayer;
 }
 
+/**
+ * @brief Función que se encarga de quitar el objetivo por el que el agente ha pasado, utilizado debido a que
+ * 		  cuando el agente va a recargar baterías, puede que en su ruta se consiga con un objetivo.
+ * @param curssPos	Estado del agente
+ * @param objList	Lista de objetivos
+ */
 void checkIfOnObjective(estado currPos, list<objective> &objList)
 {
 	for (list<objective>::iterator it = objList.begin(); it != objList.end(); ++it) 
@@ -40,7 +52,9 @@ Action ComportamientoJugador::think(Sensores sensores)
 	actual.columna = sensores.posC;
 	actual.orientacion = sensores.sentido;
 
+	// Obtener la batería actual
 	batteryLevel = sensores.bateria;
+
 	// Capturar destinos.
 	objetivos.clear();
 	for (int i = 0; i < sensores.num_destinos; i++)
@@ -68,12 +82,12 @@ Action ComportamientoJugador::think(Sensores sensores)
 	// La funcionalidad del nivel 4 está contenida aquí dentro, en caso contrario se ignora.
 	if(sensores.nivel == 4)
 	{
-		//	Rellenar el mapa y devuelve verdadero si se está pasando por una zona desconocida del mapa.
+		//	Rellenar el mapa y devuelve verdadero si se está pasando por una zona desconocida del mapa (Existe al menos un '?').
 		if(clearFog(actual, sensores.terreno))
 		{
 			/* 
 			 * Si se está pasando por una zona recién descubierta y los sensores de proximidad más 
-			 * cercanos detectan: agua, bosques, muros o precipicios, entonces recalcular el plan.
+			 * cercanos detectan: agua, bosques, muros o precipicios; entonces recalcular el plan.
 			 */
 			for (int i = 1; i <= 3; i++)
 			{
@@ -93,52 +107,68 @@ Action ComportamientoJugador::think(Sensores sensores)
 		// Si hay aldeanos cercanos...
 		if (!enemiesNearby.empty())
 		{
-			//... si un aldeanos
+			//... tomarlo como objeto inamovible
 			evadeEnemies();
+
+			// ¿Está frente mío? Pues le paso por un lado.
 			if (sensores.colision)
 			{
 				hayPlan = false;
 			}
 		}
 		
+		// Si estoy en mi objetivo y tengo baja batería, entonces estoy en una estación de recarga.
 		if (actual.fila == currObj.status.fila && actual.columna == currObj.status.columna && lowBattery)
 		{
+			// Me quedo quieto...
 			plan.push_back(actIDLE);
 
+			// ... hasta que tenga batería, y sigo con los objetivos.
 			if(batteryLevel > 2000)
 			{
 				lowBattery = false;
 				hayPlan = false;
-				actualObjectives.sort(objSort);
 			}				
 		}
 
-
+		// ¿Me estoy quedando sin baterías?
 		if (batteryLevel < 1500)
 		{
+			// Busco en el mapa estaciones de recarga...
 			checkForEnergyStations();
+
+			// ... si hay estaciones ...
 			if (!energyStations.empty())
 			{
+				// ... elijo la más cercana a mí
 				currObj = energyStations.front();
 				lowBattery = true;
 			}
 		}
 
+		// ¿He llegado a un objetivo? Quitarlo y reordenar la lista de objetivos.
 		checkIfOnObjective(actual, actualObjectives);
 
+		// Si no tengo batería baja ...
 		if(!lowBattery)
 		{
+			// ... voy a por los objetivos.
+
+			// Si he llegado a los 3 objetivos, entonces obtener los siguientes 3.
 			if (actualObjectives.empty())
 			{
 				actualObjectives = objetivos;
 				actualObjectives.sort(objSort);
 			}
+			// Tomo el más cercano.
 			currObj = actualObjectives.front();
 		}
 	}
 
 
-	if(!hayPlan || (plan.empty() && sensores.nivel == 4)
+	// Si no tengo plan, generarlo. 
+	// Adicionalmente, si el plan está vacío y estoy en el nivel 4, también volverlo a regenerar.
+	if(!hayPlan || (plan.empty() && sensores.nivel == 4))
 	{
 		plan.clear();
 		hayPlan = pathFinding(sensores.nivel, actual, objetivos, currObj, plan);
@@ -152,6 +182,7 @@ Action ComportamientoJugador::think(Sensores sensores)
 		plan.erase(plan.begin());
 	}
 
+	// Si hay enemigos en el sensor de superficie, ahora restauro el mapa a como estaba antes.
 	if(!enemiesNearby.empty())
 	{
 		restoreMap(sensores.terreno);
@@ -414,8 +445,8 @@ int ComportamientoJugador::interact(Action accion, int valor){
  *		[NIVEL 1]
  */
 
-/*
- * @brief Obtener una ruta por medio del búsqueda de anchura
+/**
+ * @brief Obtener una ruta por medio del Búsqueda en Anchura
  * @param	origen		Nodo origen para realizar la búsqueda.
  * @param	destino		Nodo destino para realizar la búsqueda.
  * @param	plan		Lista de acciones a rellenarse que llevan del origen al destino.
@@ -497,10 +528,17 @@ bool ComportamientoJugador::pathFinding_Anchura(const estado &origen, const esta
 }
 
 /**
- * 		[NIVEL 2] | [NIVEL 3]
+ * 		[NIVEL 2]
  */
 
-bool haveSameObjectivesOpen(list<objective> a, list<objective> b)
+/**
+ * @brief Función auxiliar utilizada por la clase aStarNode para comparar los objetivos que tienen dentro los nodos. 
+ * 		  Utilizado en el nivel 3, pero está aquí porque la clase es la misma para el nivel 2 y 3.
+ * @param a Lista de objetivos
+ * @param b Lista de objetivos
+ * @returns	Verdadero si a y b son idénticos o si están vacíos, Falso en caso contrario.
+ */
+bool haveSameObjectivesOpen(const list<objective> &a, const list<objective> &b)
 {
 
 	if(a.empty() && b.empty())
@@ -513,9 +551,9 @@ bool haveSameObjectivesOpen(list<objective> a, list<objective> b)
 		return false;
 	}
 	
-	list<objective>::iterator bIter = b.begin();
-	
-	for (list<objective>::iterator aIter = a.begin(); aIter != a.end(); ++aIter) 
+	list<objective>::const_iterator bIter = b.begin();
+
+	for (list<objective>::const_iterator aIter = a.begin(); aIter != a.end(); ++aIter) 
 	{
 		if (aIter->status.fila != bIter->status.fila || aIter->status.columna != bIter->status.columna)
 		{
@@ -528,23 +566,32 @@ bool haveSameObjectivesOpen(list<objective> a, list<objective> b)
 }
 
 /**
- * 
+ * @brief Clase que se utiliza con el algoritmo A* para mantener los nodos.
  */
 class aStarNode
 {
 	private:
-		estado nodeStatus;
-		list<Action> routeSoFar;
-		list<objective> currentObjectives;
-		int totalCost;
-		int accumCost;
-		int expectedCost;
-		bool hasBikini;
-		bool hasShoes;
+		estado nodeStatus;					//	Estado del nodo
+		list<Action> routeSoFar;			//	Ruta que ha tomado para llegar al nodo.
+		list<objective> currentObjectives;	//	Lista de objetivos que tiene el nodo, usado en el nivel 3.
+		int totalCost;						//  Costo total del camino, f(n) = g(n) + h(n)
+		int accumCost;						// 	Costo acumulado, lo que ha costado llegar hasta donde está el nodo, g(n)
+		int expectedCost;					//  Costo estimado, la heurística, hacia el objetivo, h(n)
+		bool hasBikini;						//  Si se tiene el bikini equipado en el nodo.
+		bool hasShoes;						//	Si se tienen las zapatillas equipadas en el nodo.
 
 	public:
 		aStarNode(){}
 
+		/**
+		 * @brief Constructor con parámetros para el A* original
+		 * @param arg_nodeStatus	Estado del nodo
+		 * @param arg_accumCost		Costo acumulado hasta el momento, es decir, el gasto de la batería.
+		 * @param arg_expectedCost	Costo estimado de batería hasta el objetivo.
+		 * @param arg_routeSoFar	Lista de acciones que han llevado hasta el estado actual.
+		 * @param arg_bikini		Indica si se tiene equipado o no el bikini.
+		 * @param arg_shoes			Indica si se tienen equipadas o no las zapatillas.
+		 */
 		aStarNode(estado arg_nodeStatus, int arg_accumCost, int arg_expectedCost, list<Action> arg_routeSoFar, bool arg_bikini, bool arg_shoes)
 		{
 			this->nodeStatus = arg_nodeStatus;
@@ -556,6 +603,16 @@ class aStarNode
 			this->hasShoes = arg_shoes;
 		}
 
+		/**
+		 * @brief Constructor con parámetros para el A* multiobjetivo
+		 * @param arg_nodeStatus	Estado del nodo
+		 * @param arg_accumCost		Costo acumulado hasta el momento, es decir, el gasto de la batería.
+		 * @param arg_expectedCost	Costo estimado de batería hasta el objetivo.
+		 * @param arg_routeSoFar	Lista de acciones que han llevado hasta el estado actual.
+		 * @param arg_bikini		Indica si se tiene equipado o no el bikini.
+		 * @param arg_shoes			Indica si se tienen equipadas o no las zapatillas.
+		 * @param arg_obj			Lista de objetivos que posee el nodo.
+		 */
 		aStarNode(estado arg_nodeStatus, int arg_accumCost, int arg_expectedCost, list<Action> arg_routeSoFar, bool arg_bikini, bool arg_shoes, list<objective> arg_obj)
 		{
 			this->nodeStatus = arg_nodeStatus;
@@ -568,36 +625,136 @@ class aStarNode
 			this->currentObjectives = arg_obj;
 		}
 
+		/**
+		 * @brief Retornar el estado del nodo
+		 * @returns Estado
+		 */
 		estado getStatus() const
 		{
 			return this->nodeStatus;
 		}
 
+		/**
+		 * @brief Obtener el coste total del nodo, f(n) = g(n) + h(n)
+		 * @returns Coste total
+		 */
 		int getTotalCost() const
 		{
 			return this->totalCost;
 		}
 
+		/**
+		 * @brief Obtener el coste acumulado del camino, g(n)
+		 * @returns Coste acumulado.
+		 */
 		int getAccumCost() const
 		{
 			return this->accumCost;
 		}
 
+		/**
+		 * @brief Obtener el coste esperado del camino, h(n)
+		 * @returns Coste esperado.
+		 */
 		int getExpectedCost() const
 		{
 			return this->expectedCost;
 		}
 
+		/**
+		 * @brief Saber si el nodo posee bikini.
+		 * @return Verdadero si tiene bikini, Falso en caso contrario.
+		 */
 		bool getIfHasBikini() const
 		{
 			return this->hasBikini;
 		}
 
+		/**
+		 * @brief Saber si el nodo posee zapatillas.
+		 * @return Verdadero si tiene zapatillas, Falso en caso contrario.
+		 */
 		bool getIfHasShoes() const
 		{
 			return this->hasShoes;
 		}
 
+		/**
+		 * @brief Compara si un estado posee las mismas coordenadas que el nodo.
+		 * @param argStatus Estado con el cual comparar coordenadas.
+		 * @return Verdadero si las coordenadas coinciden, Falso en caso contrario.
+		 */
+		bool equalCoords(estado argStatus) const
+		{
+			return this->nodeStatus.fila == argStatus.fila && this->nodeStatus.columna == argStatus.columna;
+		}
+
+		/**
+		 * @brief Compara si un nodo es idéntico a otro nodo, salvo por el coste que posean.
+		 * @param arg Nodo A* con que comparar el estado.
+		 * @returns Verdadero si el nodo posee la misma posición, orientación, bikini, zapatillas y objetivos, Falso en caso contrario.
+		 */
+		bool equalNode(const aStarNode &arg) const
+		{
+			return 	this->nodeStatus.fila == arg.nodeStatus.fila && 
+					this->nodeStatus.columna == arg.nodeStatus.columna && 
+					this->nodeStatus.orientacion == arg.nodeStatus.orientacion &&
+					this->hasBikini == arg.hasBikini &&
+					this->hasShoes == arg.hasShoes &&
+					haveSameObjectivesOpen(this->currentObjectives, arg.currentObjectives);
+		}
+
+		/**
+		 * @brief Devuelve la ruta del nodo
+		 * @returns Lista de acciones
+		 */
+		list<Action> getRoute() const
+		{
+			return this->routeSoFar;
+		}
+
+		/**
+		 * @brief Devuelve la lista de objetivos del nodo
+		 * @returns Lista de objetivos
+		 */
+		list<objective> getObjectives() const
+		{
+			return this->currentObjectives;
+		}
+
+		/**
+		 * @brief Devuelve el objetivo actual del nodo
+		 * @returns Objetivo actual
+		 */
+		objective getActualObjective() const
+		{
+			return this->currentObjectives.front();
+		}
+
+		/**
+		 * @brief Devuelve el número de objetivos por visitar del nodo.
+		 * @returns Número de objetivos.
+		 */
+		int getNumObjectives() const
+		{
+			return this->currentObjectives.size();
+		}
+
+		/**
+		 * @brief Quita el objetivo actual del nodo.
+		 */
+		void removeActualObjective()
+		{
+			if(!currentObjectives.empty())
+			{
+				this->currentObjectives.pop_front();
+			}
+		}
+
+		/**
+		 * @brief Copia los datos de un nodo a otro.
+		 * @param arg	Nodo A* al que se le copiarán los atributos.
+		 */
 		void copy(aStarNode arg)
 		{
 			this->nodeStatus = arg.nodeStatus;
@@ -610,6 +767,7 @@ class aStarNode
 			this->currentObjectives = arg.currentObjectives;
 		}
 
+		// Métodos de Depuración, imprimen los contenidos del nodo.
 		void printContents() const
 		{
 			cout<<"\tNode ["<<nodeStatus.fila<<"]["<<nodeStatus.columna<<"]("<<nodeStatus.orientacion<<") K("<<hasBikini<<") S("<<hasShoes<<") | f("<<totalCost<<")=g("<<accumCost<<")+h("<<expectedCost<<") Road size="<<routeSoFar.size()<<" Objectives="<<currentObjectives.size()<<endl;
@@ -625,52 +783,15 @@ class aStarNode
 			cout<<"]"<<endl;
 		}
 
-		bool equalCoords(estado argStatus) const
-		{
-			return this->nodeStatus.fila == argStatus.fila && this->nodeStatus.columna == argStatus.columna;
-		}
-
-		bool equalNode(const aStarNode &arg) const
-		{
-			return 	this->nodeStatus.fila == arg.nodeStatus.fila && 
-					this->nodeStatus.columna == arg.nodeStatus.columna && 
-					this->nodeStatus.orientacion == arg.nodeStatus.orientacion &&
-					this->hasBikini == arg.hasBikini &&
-					this->hasShoes == arg.hasShoes &&
-					haveSameObjectivesOpen(this->currentObjectives, arg.currentObjectives);
-		}
-
-		list<Action> getRoute() const
-		{
-			return this->routeSoFar;
-		}
-
-		list<objective> getObjectives() const
-		{
-			return this->currentObjectives;
-		}
-
-		objective getActualObjective() const
-		{
-			return this->currentObjectives.front();
-		}
-
-		int getNumObjectives() const
-		{
-			return this->currentObjectives.size();
-		}
-
-		void removeActualObjective()
-		{
-			if(!currentObjectives.empty())
-			{
-				this->currentObjectives.pop_front();
-			}
-		}
-
 };
 
 
+/**
+ * @brief Comparador para la lista de abiertos del A*, ordena los nodos por el coste que poseen
+ * @param a  Nodo de A*
+ * @param b  Nodo de A*
+ * @returns Verdadero si 'a' posee un coste total menor que 'b', o si son iguales, posee un coste acumulado menor que b. Falso en caso contrario.
+ */
 bool costCompare(const aStarNode &a, const aStarNode &b)
 {
 	bool eval = false;
@@ -694,6 +815,12 @@ bool costCompare(const aStarNode &a, const aStarNode &b)
 class isSameNode
 {
 	public:
+		/**
+		 * @brief Comparador para la lista de cerrados del A*
+		 * @param a Nodo de A*
+		 * @param b Nodo de A*
+		 * @returns Verdadero si 'a' es en cierta manera diferente de 'b', Falso en caso contrario.
+		 */
 		bool operator()(const aStarNode &a, const aStarNode &b)
 		{			
 			if ((a.getStatus().fila > b.getStatus().fila) or 
@@ -707,58 +834,38 @@ class isSameNode
 		}
 };
 
-
-bool haveSameObjectivesClosed(list<objective> a, list<objective> b)
-{
-	if (a.size() > b.size())
-	{
-		return true;
-	}
-	else if(a.size() == b.size())
-	{
-		list<objective>::iterator bIter = b.begin();
-		
-		for (list<objective>::iterator aIter = a.begin(); aIter != a.end(); ++aIter) 
-		{
-			if ((aIter->status.fila > bIter->status.fila) || 
-			    (aIter->status.fila == bIter->status.fila && aIter->status.columna > bIter->status.columna))
-			{
-				return true;
-			}
-
-			++bIter;	
-		}
-		return false;
-	}
-	else return false;
-} 
-
 /**
  * @brief Calcular la distancia Manhattan entre dos puntos.
  * @param origin		Estado de la posición de origen.
  * @param destination	Estado de la posición de destino.
- * @return	Distancia Manhattan
+ * @return	Distancia Manhattan entre origin y destination.
  */
-int manhattanDist(estado origin, estado destination)
+int manhattanDist(const estado &origin, const estado &destination)
 {
 	return abs(origin.fila - destination.fila) + abs(origin.columna - destination.columna);
 }
 
-
+/**
+ * @brief Implementación del algoritmo A* para un único objetivo
+ * @param origin		Estado origen
+ * @param destination	Estado destino
+ * @param theRoad		Lista de acciones para llegar del origen al destino.
+ * @returns	Verdadero si se ha encontrado ruta, falso en caso contrario.
+ */
 bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const estado &destination, list<Action> &theRoad)
 {
 	bool hasRoute = false, 
 		 validNode,
 		 isOnClosed,
 		 isOnOpen,
-		 actHasBikini = hasBikini,
-		 actHasShoes = hasShoes;
+		 actHasBikini = this->hasBikini, // Obtener si el agente posee ya bikinis.
+		 actHasShoes = this->hasShoes;   // Ídem con las zapatillas.
 
-	multiset<aStarNode,bool(*)(const aStarNode&, const aStarNode&)> open (costCompare);
+	multiset<aStarNode,bool(*)(const aStarNode&, const aStarNode&)> open (costCompare);		// "Lista" de ABIERTOS
 	multiset<aStarNode>::iterator openFinder;
 
-	map<aStarNode, aStarNode, isSameNode> closed;
-	map<aStarNode, aStarNode>::iterator closedFinder;
+	multiset<aStarNode, isSameNode> closed;													// "Lista" de CERRADOS
+	multiset<aStarNode>::iterator closedFinder;
 	
 	list<Action> actualRoad;
 
@@ -766,26 +873,32 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 	int actAccumCost;
 	Action actAction;
 	
-
-	aStarNode actNode, root(origin, 0, manhattanDist(origin, destination), theRoad, actHasBikini, actHasShoes), auxNode;
+	// Se crea el nodo raíz y se inserta de una vez en ABIERTOS, se declaran adicionalmente un nodo auxiliar.
+	aStarNode actNode, root(origin, 0, manhattanDist(origin, destination), theRoad, actHasBikini, actHasShoes);
 	open.insert(root);
 
+	// Mientras existan nodos en ABIERTOS, explorar...
 	while (!open.empty())
 	{
+		// Obtener el nodo más prometedor y quitarlo de ABIERTOS.
 		openFinder = open.begin();
 		actNode = *openFinder;
 		open.erase(openFinder);
 
+		// Si el nodo está en el destino, hay ruta y finaliza el bucle.
 		if(actNode.equalCoords(destination))
 		{
 			hasRoute = true;
 			break;
 		}
 
-		closed.insert(pair<aStarNode, aStarNode>(actNode, actNode));
+		// Sino, lo meto en CERRADOS y genero los hijos.
+		closed.insert(actNode);
 
+		// Generar un hijo implica o bien rotar hacia la derecha o la izquierda o moverse hacia delante, se hace un bucle para ello.
 		for (int i = 0; i < 3; i++)
 		{
+			// Se inicializan las variables auxiliares al estado actual del nodo padre.
 			validNode = false;
 			actStatus = actNode.getStatus();
 			actAccumCost = actNode.getAccumCost();
@@ -793,10 +906,14 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 			actHasShoes = actNode.getIfHasShoes();
 			actAction = (Action)i;
 
+			// Estas variables están sujetas a ser modificadas dependiendo de las acciones que tome el nodo hijo.
+
 			// Girar a la derecha o izquierda
 			if (i == actTURN_R || i == actTURN_L)
 			{
 				actStatus.orientacion = ( i == actTURN_L ? (actStatus.orientacion+3)%4 : (actStatus.orientacion+1)%4);
+
+				// Se aumenta el coste transcurrido, es decir g(n), dependiendo del terreno en que se encuentra el agente.
 				switch (mapaResultado[actStatus.fila][actStatus.columna])
 				{
 					case 'A':
@@ -841,6 +958,8 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 						actAccumCost += 1;
 					break;
 				}
+
+				// El nodo siempre será válido cuando se gira ya que no es posible girar en un muro o un precipicio.
 				validNode = true;
 			}
 
@@ -893,17 +1012,21 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 					break;
 				}
 				
+				// Si para donde se mueve no es un muro o precipicio, el nodo es válido.
 				if(!HayObstaculoDelante(actStatus))
 				{
 					validNode = true;
 				}
 			}
 
+			// Si el nodo hijo es un nodo válido, crearlo propiamente.
 			if (validNode)
 			{
+				// El camino se aumenta en uno, añadiendo la última acción que se hizo.
 				actualRoad = actNode.getRoute();
 				actualRoad.push_back(actAction);
 
+				// Se crea propiamente el nodo.
 				aStarNode newNode(actStatus, actAccumCost, manhattanDist(actStatus, destination), actualRoad, actHasBikini, actHasShoes);
 
 				isOnClosed = false;
@@ -911,24 +1034,28 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 
 				closedFinder = closed.find(newNode);
 
+				// Si el nodo está en CERRADOS ...
 				if(closedFinder != closed.end())
 				{
 					isOnClosed = true;
-					if(newNode.getAccumCost() < closedFinder->second.getAccumCost())
+					// ... y el nodo actual posee un mejor g(n) que su copia en CERRADOS, quitarlo y añadirlo en ABIERTOS.
+					if(newNode.getAccumCost() < closedFinder->getAccumCost())
 					{
-						newNode.copy(closedFinder->second);
 						closed.erase(closedFinder);
 						open.insert(newNode);
 					}
 				}
 
+				// Si el nodo no está en CERRADOS, buscarlo en ABIERTOS.
 				if(!isOnClosed)
 				{		
 					for (multiset<aStarNode>::iterator it = open.begin(); it != open.end(); ++it)
 					{
+						// Si el nodo está en ABIERTOS...
 						if (newNode.equalNode(*it))
 						{
 							isOnOpen = true;
+							// ... y el nodo actual posee una mejor g(n) que su copia de ABIERTOS, "reemplazar" la copia en ABIERTOS.
 							if (newNode.getAccumCost() < it->getAccumCost())
 							{
 								open.erase(it);
@@ -939,6 +1066,7 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 					}
 				}
 
+				// Sino está ni en CERRADOS ni en ABIERTOS, insertarlo en ABIERTOS.
 				if(!isOnClosed && !isOnOpen)
 				{
 					open.insert(newNode);
@@ -947,9 +1075,13 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 		}
 	}
 
+	// Si hay ruta, visualizarla e igualar a la variable por referencia del procedimiento.
 	if(hasRoute)
 	{
+		cout<<"Ruta encontrada."<<endl;
+		cout<<"Coste en Batería: "<<actNode.getAccumCost()<<" ("<<this->batteryLevel-actNode.getAccumCost()<<")"<<endl;
 		theRoad = actNode.getRoute();
+		PintaPlan(theRoad);
 		VisualizaPlan(origin, theRoad);
 	}
 	else
@@ -961,12 +1093,50 @@ bool ComportamientoJugador::pathFinding_Aestrella(const estado &origin, const es
 }
 
 /**
- * [NIVEL 3]
+ * 		[NIVEL 3]
  */
+
+/**
+ * @brief Comparador auxiliar para la lista de cerrados, compara si dos listas de objetivos son iguales o poseen alguna diferencia.
+ * @param a  Lista de objetivos
+ * @param b  Lista de objetivos
+ * @returns Verdadero si 'a' es en cierta forma diferente de 'b', Falso en caso contrario.
+ */
+bool haveSameObjectivesClosed(const list<objective> &a, const list<objective> &b)
+{
+	if (a.size() > b.size())
+	{
+		return true;
+	}
+	else if(a.size() == b.size())
+	{
+		list<objective>::const_iterator bIter = b.begin();
+		
+		for (list<objective>::const_iterator aIter = a.begin(); aIter != a.end(); ++aIter) 
+		{
+			if ((aIter->status.fila > bIter->status.fila) || 
+			    (aIter->status.fila == bIter->status.fila && aIter->status.columna > bIter->status.columna))
+			{
+				return true;
+			}
+
+			++bIter;	
+		}
+		return false;
+	}
+	else return false;
+} 
+
 
 class isSameNodeMulti
 {
 	public:
+		/**
+		 * @brief Comparador para la lista de cerrados del A* Multiobjetivo
+		 * @param a Nodo de A*
+		 * @param b Nodo de A*
+		 * @returns Verdadero si 'a' es en cierta manera diferente de 'b', Falso en caso contrario.
+		 */
 		bool operator()(const aStarNode &a, const aStarNode &b)
 		{			
 			if ((a.getStatus().fila > b.getStatus().fila) or 
@@ -981,82 +1151,128 @@ class isSameNodeMulti
 		}
 };
 
-
-int multiManhattanDist(estado origin, list<objective> objectives)
+/**
+ * @brief Cálculo de la distancia Manhattan entre un origen y múltiples objetivos
+ * @param origin	Estado origen
+ * @param destination Lista de objetivos 
+ * @returns Distancia Manhattan del origen hacia los objetivos en el orden en que se encuentran.
+ */
+int multiManhattanDist(const estado &origin, const list<objective> &objectives)
 {
 	int sum = 0;
-	objective destination;
+	list<objective>::const_iterator destination;
 
-	destination = objectives.front();
-	objectives.pop_front();
+	destination = objectives.begin();
 
-	sum = manhattanDist(origin, destination.status);
+	sum = manhattanDist(origin, destination->status);
 
-	while (!objectives.empty())
+	for (list<objective>::const_iterator i = ++destination; i != objectives.end(); ++i) 
 	{
-		sum += manhattanDist(destination.status, objectives.front().status);
-		destination = objectives.front();
-		objectives.pop_front();
+		sum += manhattanDist(destination->status, i->status);
+		destination = i;
 	}
 
 	return sum;
 }
 
-
+/**
+ * @brief Implementación del algoritmo A* para multiples objetivos
+ * @param origin		Estado origen.
+ * @param destination	Lista de destinos.
+ * @param theRoad		Ruta desde el origen pasando por cada destino.
+ * @returns Verdadero si se encuentra la ruta, falso en caso contrario.
+ */
 bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, const list<objective> &destination, list<Action> &theRoad)
 {
 	bool hasRoute = false, 
 		 validNode,
 		 isOnClosed,
 		 isOnOpen,
-		 actHasBikini = hasBikini,
-		 actHasShoes = hasShoes,
-		 scrambleObjectives = true;
+		 actHasBikini = this->hasBikini, // Obtener si el agente ya posee bikini.
+		 actHasShoes = this->hasShoes,	 // Ídem con las zapatillas.
+		 scrambleObjectives = true;	     // Barajear los objetivos, al principio siempre se realiza.
 
-	multiset<aStarNode,bool(*)(const aStarNode&, const aStarNode&)> open (costCompare);
+	multiset<aStarNode,bool(*)(const aStarNode&, const aStarNode&)> open (costCompare);  // "Lista" de ABIERTOS
 	multiset<aStarNode>::iterator openFinder;
 
-	map<aStarNode, aStarNode, isSameNodeMulti> closed;
-	map<aStarNode, aStarNode>::iterator closedFinder;
+	multiset<aStarNode, isSameNodeMulti> closed;												 // "Lista" de CERRADOS
+	multiset<aStarNode>::iterator closedFinder;
 	
 	list<Action> actualRoad;
-	list<objective> actObjectives;
+	list<objective> actObjectives; // Se tiene adicionalmente una lista de objetivos para el nodo actual que se está analizando.
 
 	estado actStatus;
+
 	objective actDestination;
-	int actAccumCost, i = 0;
+
+	int actAccumCost, 
+		i = 0, 
+		maxScram = destination.size();
+
 	Action actAction;
-	
+	/**
+	 *  Se crea el nodo raíz y se inserta de una vez en ABIERTOS, se declaran adicionalmente un nodo auxiliar, notar que se utiliza ahora la heurística
+	 *  de distancia Manhattan múltiple en vez de la variante original.
+	 */ 
 	aStarNode actNode, root(origin, 0, multiManhattanDist(origin, destination), theRoad, actHasBikini, actHasShoes, destination), auxNode;
 	open.insert(root);
 
+	// Mientras existan nodos en ABIERTOS, explorar...
 	while (!open.empty())
 	{
+		// Obtener el nodo más prometedor y quitarlo de ABIERTOS.
 		openFinder = open.begin();
 		actNode = *openFinder;
 		open.erase(openFinder);
+
+		// Obtener el destino al que se dirige este nodo en particular
 		actDestination = actNode.getActualObjective();
 
+		// Si el nodo está en el destino...
 		if(actNode.equalCoords(actDestination.status))
 		{
+			// ... y en la lista de objetivos solo está ese destino, ya se han encontrado los 3 objetivos. Hay ruta y finaliza el bucle.
 			if (actNode.getNumObjectives() == 1)
 			{
 				hasRoute = true;
 				break;
 			}
+			// ... sino, quitar el objetivo, y en los hijos barajear los objetivos que restan.
 			else
 			{
 				actNode.removeActualObjective();
+				// Se vuelven a barajear los objetivos restantes.
 				scrambleObjectives = true;
+				i = 0;
+				maxScram = actNode.getNumObjectives();
 			}
 
 		}
 
-		closed.insert(pair<aStarNode, aStarNode>(actNode, actNode));
-			
+		// Sino, lo meto en CERRADOS y genero los hijos.
+		closed.insert(actNode);
+
+		/**
+		 *  - La mayor diferencia con el A* original es que, para obtener la ruta óptima de visitar varios objetivos, se deben generar hijos adicionales
+		 *    que ramifican la búsqueda, es decir, hijos que van a diferentes objetivos y entre ellos se obtendrá la ruta óptima. Naturalmente,
+		 *    una vez que se llega a un destino, los hijos de ese nodo padre deberán ramificar también los objetivos restantes.
+		 * 
+		 *  - Esto se realiza con el do-while adicional: se poseen en este caso 3 objetivos (aunque la implementación soporta
+		 *    n objetivos también) entonces, en vez de generarse 3 hijos solamente, se generan 9 hijos, cada trío posee un objetivo para el cual ir diferente.
+		 * 
+		 *  - Esto no se realiza en cada iteración, ya que es muy ineficiente porque se generan muchos nodos repetidos, se realiza cada vez que un nodo o bien
+		 *    es el nodo raíz o el nodo padre ha llegado a un objetivo, por que allí tiene sentido ramificar la búsqueda, mientras un nodo está en búsqueda de ese
+		 *    objetivo, no tendría sentido ramificar, ya que existen ya otros nodos hijo que están en búsqueda de los otros objetivos.
+		 * 
+		 *  - Se utiliza un do-while ya que en el caso de que no se necesiten más iteraciones, se generarán 3 hijos y el bucle no se repetirá, ya que la condición
+		 *    se comprueba al final y estará en Falso.
+		 */
+
 		actObjectives = actNode.getObjectives();
+
 		do 
 		{
+			// Si es el baraje, para cada hijo, recibirá un objetivo diferente, ya que el frente de la lista irá cambiando.
 			if(scrambleObjectives && actObjectives.size() > 1)
 			{
 				actObjectives.push_back(actObjectives.front());
@@ -1064,9 +1280,10 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 			}
 			
 			i++;
-
+			// Generar un hijo implica o bien rotar hacia la derecha o la izquierda o moverse hacia delante, se hace un bucle para ello.
 			for (int j = 0; j < 3; j++)
 			{
+				// Se inicializan las variables auxiliares al estado actual del nodo padre.
 				validNode = false;
 				actStatus = actNode.getStatus();
 				actAccumCost = actNode.getAccumCost();
@@ -1074,10 +1291,14 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 				actHasShoes = actNode.getIfHasShoes();
 				actAction = (Action)j;
 
+				// Estas variables están sujetas a ser modificadas dependiendo de las acciones que tome el nodo hijo.
+
 				// Girar a la derecha o izquierda
 				if (j == actTURN_R || j == actTURN_L)
 				{
 					actStatus.orientacion = ( j == actTURN_L ? (actStatus.orientacion+3)%4 : (actStatus.orientacion+1)%4);
+
+					// Se aumenta el coste transcurrido, es decir g(n), dependiendo del terreno en que se encuentra el agente.
 					switch (mapaResultado[actStatus.fila][actStatus.columna])
 					{
 						case 'A':
@@ -1122,6 +1343,8 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 							actAccumCost += 1;
 						break;
 					}
+
+					// El nodo siempre será válido cuando se gira ya que no es posible girar en un muro o un precipicio.
 					validNode = true;
 				}
 
@@ -1172,6 +1395,8 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 							actAccumCost += 1;
 						break;
 					}
+
+					// Si para donde se mueve no es un muro o precipicio, el nodo es válido.
 					if(!HayObstaculoDelante(actStatus))
 					{
 						validNode = true;
@@ -1179,11 +1404,14 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 
 				}
 
+				// Si el nodo hijo es un nodo válido, crearlo propiamente.
 				if (validNode)
 				{
+					// El camino se aumenta en uno, añadiendo la última acción que se hizo.
 					actualRoad = actNode.getRoute();
 					actualRoad.push_back(actAction);
 
+					// Se crea propiamente el nodo.
 					aStarNode newNode(actStatus, actAccumCost, multiManhattanDist(actStatus, destination), actualRoad, actHasBikini, actHasShoes, actObjectives);
 
 					isOnClosed = false;
@@ -1191,24 +1419,28 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 
 					closedFinder = closed.find(newNode);
 
+					// Si el nodo está en CERRADOS ...
 					if(closedFinder != closed.end())
 					{
 						isOnClosed = true;
-						if(newNode.getAccumCost() < closedFinder->second.getAccumCost())
+						// ... y el nodo actual posee un mejor g(n) que su copia en CERRADOS, quitarlo y añadirlo en ABIERTOS.
+						if(newNode.getAccumCost() < closedFinder->getAccumCost())
 						{
-							newNode.copy(closedFinder->second);
 							closed.erase(closedFinder);
 							open.insert(newNode);
 						}
 					}
 
+					// Si el nodo no está en CERRADOS, buscarlo en ABIERTOS.
 					if(!isOnClosed)
 					{					
 						for (multiset<aStarNode>::iterator it = open.begin(); it != open.end(); ++it)
 						{
+							// Si el nodo está en ABIERTOS...
 							if (newNode.equalNode(*it))
 							{
 								isOnOpen = true;
+								// ... y el nodo actual posee una mejor g(n) que su copia de ABIERTOS, "reemplazar" la copia en ABIERTOS.
 								if (newNode.getAccumCost() < it->getAccumCost())
 								{
 									open.erase(it);
@@ -1218,7 +1450,7 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 							}	
 						}
 					}
-
+					// Sino está ni en CERRADOS ni en ABIERTOS, insertarlo en ABIERTOS.
 					if(!isOnClosed && !isOnOpen)
 					{
 						open.insert(newNode);
@@ -1227,17 +1459,21 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 				}
 			}
 
-		if (i == 3)
-		{
-			scrambleObjectives = false;
-			i = 0;
-		}
+			// Si ya se ha dado vuelta entera a la lista, entonces dejar de barajear.
+			if (i == maxScram && scrambleObjectives)
+			{
+				scrambleObjectives = false;
+				i = 0;
+			}
 
 		}while(scrambleObjectives);
 	}
 
+	// Si hay ruta, visualizarla e igualar a la variable por referencia del procedimiento.
 	if(hasRoute)
 	{
+		cout<<"Ruta encontrada."<<endl;
+		cout<<"Coste en Batería: "<<actNode.getAccumCost()<<" ("<<this->batteryLevel-actNode.getAccumCost()<<")"<<endl;
 		theRoad = actNode.getRoute();
 		PintaPlan(theRoad);
 		VisualizaPlan(origin, theRoad);
@@ -1249,12 +1485,14 @@ bool ComportamientoJugador::pathFinding_AestrellaMulti(const estado &origin, con
 	
 	return hasRoute;
 }
+
 /**
- * [NIVEL 4]
+ * 		[NIVEL 4]
  */
 
 /**
  * @brief Chequea el mapa por si se han descubierto estaciones de recarga, las almacena en la lista 'energyStations'
+ * 		  y la lista de ordena teniendo de primero a la estación más cercana.
  */
 void ComportamientoJugador::checkForEnergyStations()
 {
@@ -1276,13 +1514,22 @@ void ComportamientoJugador::checkForEnergyStations()
 	energyStations.sort(objSort);
 }
 
+/**
+ * @brief Va descubriendo el mapa a medida que el agente atraviesa el mundo.
+ * @param status	Posición y orientación actual del agente
+ * @param visualField Sensores de terreno
+ * @returns Verdadero si se está atravesando por una zona desconocida, o sea, se detecta 
+ * 			al menos una casilla desconocida, Falso en caso contrario.
+ */
 bool ComportamientoJugador::clearFog(const estado &status, const vector<unsigned char> &visualField)
 {
 	bool silentHill = false;
 	int k = 1;
+
 	if (mapaResultado[status.fila][status.columna] == '?')
 	{
 		mapaResultado[status.fila][status.columna] = visualField[0];
+		silentHill = true;
 	}
 	
 	switch (status.orientacion)
@@ -1352,6 +1599,11 @@ bool ComportamientoJugador::clearFog(const estado &status, const vector<unsigned
 	return silentHill;
 }
 
+/**
+ * @brief Verifica el sensor de superficie por enemigos, los guarda en un vector llamado 'enemiesNearby'.
+ * @param status		Estado actual del jugador.
+ * @param enemyRadar	Sensor de superficie
+ */
 void ComportamientoJugador::checkEnemies(const estado &status, const vector<unsigned char> &enemyRadar)
 {
 	enemiesNearby.clear();
@@ -1431,6 +1683,10 @@ void ComportamientoJugador::checkEnemies(const estado &status, const vector<unsi
 	}
 }
 
+/**
+ * @brief Evade los enemigos cercanos, toma la posición donde está el enemigo y lo marca como si fuera un muro.
+ * 		  De esta manera el A* hará que el agente le pase por un lado.
+ */
 void ComportamientoJugador::evadeEnemies()
 {
 	for (int i = 0; i < enemiesNearby.size(); i++)
@@ -1440,6 +1696,11 @@ void ComportamientoJugador::evadeEnemies()
 	
 }
 
+/**
+ * @brief Luego de generar la ruta, se restuara el mapa, se obtiene del sensor de terreno que terreno hay en donde está
+ *        parado el enemigo.
+ * @param visualField	Sensor de terreno del agente.
+ */
 void ComportamientoJugador::restoreMap(const vector<unsigned char> &visualField)
 {
 	for (int i = 0; i < enemiesNearby.size(); i++)

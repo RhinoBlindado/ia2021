@@ -8,6 +8,7 @@ class Player{
       Player(int jug);
       Environment::ActionType Think();
       void Perceive(const Environment &env);
+      
     private:
       int jugador_;
       Environment actual_;

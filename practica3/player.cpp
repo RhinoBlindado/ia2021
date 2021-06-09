@@ -4,7 +4,9 @@
 #include <queue>
 #include "player.h"
 #include "environment.h"
-
+#include <map>
+#include <list>
+#include <limits>
 using namespace std;
 
 const double masinf=9999999999.0, menosinf=-9999999999.0;
@@ -53,13 +55,284 @@ double ValoracionTest(const Environment &estado, int jugador){
 
 // ------------------- Los tres metodos anteriores no se pueden modificar
 
+/**
+ *  [CASTELLANO]
+ * 
+ * Practica 3 - Busqueda con Adversario & Juegos
+ * Asignatura: Inteligencia Artificial
+ * Autor: Valentino Lugli (Github: @RhinoBlindado)
+ * Mayo, Junio 2021
+ */
+
+/**
+ *  [ENGLISH]
+ *
+ * Practice 3 - Adversary Search and Games
+ * Course: Artificial Intelligence
+ * Author: Valentino Lugli (Github: @RhinoBlindado)
+ * May, June 2021
+ */
+
+
+const int baseGrid[7][7]=
+{
+   {1, 2, 3, 4, 3, 2, 1},
+   {1, 2, 3, 4, 3, 2, 1},
+   {1, 2, 3, 4, 3, 2, 1},
+   {1, 2, 3, 4, 3, 2, 1},
+   {1, 2, 3, 4, 3, 2, 1},
+   {1, 2, 3, 4, 3, 2, 1},
+   {1, 2, 3, 4, 3, 2, 1}
+};
+
+struct token
+{
+   int i;
+   int j;
+   double score;
+};
+
+class compareTokens
+{
+   public:
+      bool operator()(const pair<int, int> &a, const pair<int, int> &b)
+      {
+         if ((a.first > b.first) ||
+             (a.first == b.first && a.second > b.second))
+         {
+            return true;
+         }
+         else
+         {
+            return false;
+         }
+   }
+};
+
+double checkGrid(const Environment &g, int p, bool r);
+
+double checkBoomEffects(const Environment &gameBoard, int actPlayer)
+{
+   int boomAct = 7;
+
+   double accumValue, result;
+
+   Environment nextGame = gameBoard.GenerateNextMove(boomAct);
+
+   if (nextGame.JuegoTerminado() && nextGame.RevisarTablero() == actPlayer)
+   {
+      accumValue = 1000;
+   }
+   else
+   if (nextGame.JuegoTerminado() != actPlayer &&  nextGame.RevisarTablero() != 0)
+   {
+      accumValue = -1000;
+   }
+
+   return accumValue;
+}
+
+double checkConnectedPieces(const Environment &gameBoard, int actPlayer, vector<token> actToken, map< pair<int, int>, token, compareTokens> actTokenMap, map< pair<int, int>, token, compareTokens> actEnemyMap)
+{
+   pair<int, int> locator;
+   bool contiguous = false;
+   map<pair<int, int>, token>::iterator tokenIter, enemyIter;
+   list<double> values;
+   double accumValue = 0;
+   int ii, jj, foundCounter;
+
+   for (int i = 0; i < actToken.size(); i++)
+   {
+      values.clear();
+      accumValue += actToken[i].score;
+      ii = actToken[i].i;
+      jj = actToken[i].j;
+
+      foundCounter = 0;
+      locator.first = ii;
+      for (int j = 0; j < 3 && jj + j + 1 < 7; j++)
+      {
+         locator.second = jj + j + 1;
+         tokenIter = actTokenMap.find(locator);
+
+         if (tokenIter != actTokenMap.end())
+         {
+            accumValue += tokenIter->second.score;
+            if (contiguous)
+            {
+               accumValue += 10;
+            }
+            contiguous = true;
+         }
+         else
+         {
+            contiguous = false;
+            enemyIter = actEnemyMap.find(locator);
+            if (enemyIter != actEnemyMap.end())
+            {
+               break;
+            }
+            accumValue += 0.5;
+         }
+      }
+
+      locator.second = jj;
+      for (int j = 0; j < 3 && ii + j + 1 < 7; j++)
+      {
+         locator.first = ii + j + 1;
+         tokenIter = actTokenMap.find(locator);
+
+         if (tokenIter != actTokenMap.end())
+         {
+            accumValue += tokenIter->second.score;
+            if (contiguous)
+            {
+               accumValue += 10;
+            }
+            contiguous = true;
+         }
+         else
+         {
+            contiguous = false;
+            enemyIter = actEnemyMap.find(locator);
+            if (enemyIter != actEnemyMap.end())
+            {
+               break;
+            }
+            accumValue += 0.5;
+         }
+      }
+
+      locator.first = ii;
+      locator.second = jj;
+      for (int j = 0; j < 3 && ii + j + 1 < 7 && jj + j + 1 < 7; j++)
+      {
+         locator.first = ii + j + 1;
+         locator.second = jj + j + 1;
+         tokenIter = actTokenMap.find(locator);
+
+         if (tokenIter != actTokenMap.end())
+         {
+            accumValue += tokenIter->second.score;
+            if (contiguous)
+            {
+               accumValue += 10;
+            }
+            contiguous = true;
+         }
+         else
+         {
+            contiguous = false;
+            enemyIter = actEnemyMap.find(locator);
+            if (enemyIter != actEnemyMap.end())
+            {
+               break;
+            }
+            accumValue += 0.5;
+         }
+      }
+
+   }
+
+   return accumValue;
+}
+double checkGrid(const Environment &gameBoard, int player, bool checkBomb)
+{
+
+   int enemy;
+
+   bool bombTokenFound = false;
+
+   double playerSum = 0, enemySum = 0;
+
+   token auxToken, playerBoom, enemyBoom;
+
+   pair<int, int> auxPair;
+
+   map<pair<int, int>, token, compareTokens> playerTokensMap, enemyTokensMap;
+
+   vector<token> playerTokens, enemyTokens;
+
+   if (player == 1)
+      enemy = 2;
+   else
+      enemy = 1;
+   
+   for (int i = 0; i < 7; i++)
+   {
+      for (int j = 0; j < 7; j++)
+      {
+         if (gameBoard.See_Casilla(i,j) != 0)
+         {
+            auxToken.i = i;
+            auxPair.first = i;
+            auxToken.j = j;
+            auxPair.second = j;
+            auxToken.score = baseGrid[i][j];
+
+
+            if (gameBoard.See_Casilla(i,j) == (char)player || gameBoard.See_Casilla(i,j) == (char)(player+3))
+            {
+               playerTokensMap.insert(pair<pair<int,int>, token>(auxPair, auxToken));
+               playerTokens.push_back(auxToken);
+               
+               if (gameBoard.See_Casilla(i,j) == (char)(player+3))
+               {
+                  playerBoom = auxToken;
+               }
+            }
+            else
+            {
+               enemyTokensMap.insert(pair<pair<int,int>, token>(auxPair, auxToken));
+               enemyTokens.push_back(auxToken);
+
+               if (gameBoard.See_Casilla(i,j) == (char)(enemy+3))
+               {
+                  enemyBoom = auxToken;
+               }
+            }  
+         }
+      }
+   }
+
+   playerSum = checkConnectedPieces(gameBoard, player, playerTokens, playerTokensMap, enemyTokensMap);
+   enemySum = checkConnectedPieces(gameBoard, enemy, enemyTokens, enemyTokensMap, playerTokensMap);
+   
+   if (gameBoard.Have_BOOM(player) && checkBomb)
+   {
+      playerSum += checkBoomEffects(gameBoard, player);
+   }
+
+   if (gameBoard.Have_BOOM(enemy) && checkBomb)
+   {
+      enemySum += checkBoomEffects(gameBoard, enemy);
+   }
+
+   return playerSum - enemySum;
+}
 
 
 // Funcion heuristica (ESTA ES LA QUE TENEIS QUE MODIFICAR)
 double Valoracion(const Environment &estado, int jugador)
 {
-   
-   return -1;
+   double valorH = 0;
+   if (estado.JuegoTerminado())
+   {
+      int winner = estado.RevisarTablero();
+      if (winner == jugador)
+      {
+         valorH = 99999999;
+      }
+      else
+      if (jugador != 0)
+      {
+         valorH = -99999999;
+      }
+   }
+
+   valorH += checkGrid(estado, jugador, true);
+
+   return valorH;
 }
 
 
@@ -91,7 +364,7 @@ double alphaBetaPruning(Environment actGame, int actPlayer, Environment::ActionT
 {
    if (actDepth == maxDepth || actGame.JuegoTerminado())
    {
-      return ValoracionTest(actGame, actPlayer);
+      return Valoracion(actGame, MAX);
    }
    else
    {
@@ -110,19 +383,21 @@ double alphaBetaPruning(Environment actGame, int actPlayer, Environment::ActionT
          if (possible[nextAction] && nextAction < 8)
          {
             actValue = alphaBetaPruning(nextGame, nextGame.JugadorActivo(), bestAction, actDepth + 1, maxDepth, alpha, beta, MAX);
-            if (actGame.JugadorActivo() == MAX && actValue > alpha)
-            {
+            if (actPlayer == MAX && actValue > alpha)
+            {               
                localAction = nextAction;
                alpha = actValue;
             }
-            else if (actGame.JugadorActivo() != MAX && actValue < beta)
+            
+            if (actPlayer != MAX && actValue < beta)
             {
                beta = actValue;
             }
+
          }
       }
-
       bestAction = static_cast< Environment::ActionType > (localAction);
+
       if (actGame.JugadorActivo() == MAX)
       {
          return alpha;
@@ -204,7 +479,8 @@ Environment::ActionType Player::Think(){
    //cout << "Valor MiniMax: " << valor << "  Accion: " << actual_.ActionStr(accion) << endl;
    alpha = menosinf;
    beta = masinf;
-   alphaBetaPruning(actual_, jugador_, accion, 0, PROFUNDIDAD_ALFABETA, alpha, beta, jugador_);
+   valor = alphaBetaPruning(actual_, jugador_, accion, 0, PROFUNDIDAD_ALFABETA, alpha, beta, jugador_);
+   cout << "Valor MiniMax: " << valor << "  Accion: " << actual_.ActionStr(accion) << endl;
    return accion;
 }
 

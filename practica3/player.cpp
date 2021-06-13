@@ -74,6 +74,7 @@ double ValoracionTest(const Environment &estado, int jugador){
  */
 
 
+// Matriz para evaluar la posición de una ficha en el tablero.
 const int baseGrid[7][7]=
 {
    {1, 2, 3, 4, 3, 2, 1},
@@ -85,6 +86,12 @@ const int baseGrid[7][7]=
    {1, 2, 3, 4, 3, 2, 1}
 };
 
+/**
+ * @brief Registro para almacenar una ficha.
+ * @param i Posición en la fila del tablero.
+ * @param j Posición en la columna del tablero.
+ * @param score Valoración dependiendo de su localización.
+ */
 struct token
 {
    int i;
@@ -92,6 +99,9 @@ struct token
    double score;
 };
 
+/**
+ * @brief Funtor utilizado para buscar las fichas en el map.
+ */
 class compareTokens
 {
    public:
@@ -109,45 +119,57 @@ class compareTokens
    }
 };
 
-double checkGrid(const Environment &g, int p, bool r);
-
+/**
+ * @brief Chequear que efectos produce la ficha bomba en el tablero.
+ * @param gameBoard  El tablero de juego.
+ * @param actPlayer  El jugador.
+ */
 double checkBoomEffects(const Environment &gameBoard, int actPlayer)
 {
    int boomAct = 7;
 
-   double accumValue, result;
+   double accumValue = 0;
 
-   Environment nextGame = gameBoard.GenerateNextMove(boomAct);
+   Environment newGame = gameBoard.GenerateNextMove(boomAct);
 
-   if (nextGame.JuegoTerminado() && nextGame.RevisarTablero() == actPlayer)
+   if (newGame.JuegoTerminado())
    {
-      accumValue = 1000;
+      if (newGame.RevisarTablero() == actPlayer)
+      {
+         accumValue = 100;
+      }
+      else
+      if (newGame.RevisarTablero() != 0)
+      {
+         accumValue = -100;
+      }
    }
-   else
-   if (nextGame.JuegoTerminado() != actPlayer &&  nextGame.RevisarTablero() != 0)
-   {
-      accumValue = -1000;
-   }
-
    return accumValue;
 }
 
+/**
+ * @brief Revisar si las fichas están conectadas entre sí, ya sea horizontal, vertical, o diagonalmente.
+ * @param gameBoard  El tablero.
+ * @param actToken   Vector que contiene las fichas del jugador.
+ * @param actTokenMap Map que posee las fichas del jugador, utilizado para encontrarlas.
+ * @param actEnemyMap Map que posee las fichas enemigas para encontrarlas.
+ * @returns Valoración heurística
+ */
 double checkConnectedPieces(const Environment &gameBoard, int actPlayer, vector<token> actToken, map< pair<int, int>, token, compareTokens> actTokenMap, map< pair<int, int>, token, compareTokens> actEnemyMap)
 {
    pair<int, int> locator;
    bool contiguous = false;
    map<pair<int, int>, token>::iterator tokenIter, enemyIter;
-   list<double> values;
    double accumValue = 0;
    int ii, jj, foundCounter;
 
    for (int i = 0; i < actToken.size(); i++)
    {
-      values.clear();
       accumValue += actToken[i].score;
       ii = actToken[i].i;
       jj = actToken[i].j;
 
+      contiguous = true;
       foundCounter = 0;
       locator.first = ii;
       for (int j = 0; j < 3 && jj + j + 1 < 7; j++)
@@ -157,6 +179,7 @@ double checkConnectedPieces(const Environment &gameBoard, int actPlayer, vector<
 
          if (tokenIter != actTokenMap.end())
          {
+
             accumValue += tokenIter->second.score;
             if (contiguous)
             {
@@ -170,12 +193,12 @@ double checkConnectedPieces(const Environment &gameBoard, int actPlayer, vector<
             enemyIter = actEnemyMap.find(locator);
             if (enemyIter != actEnemyMap.end())
             {
+
                break;
             }
-            accumValue += 0.5;
          }
       }
-
+      contiguous = true;
       locator.second = jj;
       for (int j = 0; j < 3 && ii + j + 1 < 7; j++)
       {
@@ -197,12 +220,13 @@ double checkConnectedPieces(const Environment &gameBoard, int actPlayer, vector<
             enemyIter = actEnemyMap.find(locator);
             if (enemyIter != actEnemyMap.end())
             {
+
                break;
             }
-            accumValue += 0.5;
          }
       }
 
+      contiguous = true;
       locator.first = ii;
       locator.second = jj;
       for (int j = 0; j < 3 && ii + j + 1 < 7 && jj + j + 1 < 7; j++)
@@ -213,6 +237,38 @@ double checkConnectedPieces(const Environment &gameBoard, int actPlayer, vector<
 
          if (tokenIter != actTokenMap.end())
          {
+
+            accumValue += tokenIter->second.score;
+            if (contiguous)
+            {
+               accumValue += 10;
+            }
+            contiguous = true;
+         }
+         else
+         {
+            contiguous = false;
+            enemyIter = actEnemyMap.find(locator);
+            if (enemyIter != actEnemyMap.end())
+            {
+
+               break;
+            }
+         }
+      }
+
+      contiguous = true;
+      locator.first = ii;
+      locator.second = jj;
+      for (int j = 0; j < 3 && ii - j - 1 >= 0 && jj + j + 1 < 7; j++)
+      {
+         locator.first = ii - j - 1;
+         locator.second = jj + j + 1;
+         tokenIter = actTokenMap.find(locator);
+
+         if (tokenIter != actTokenMap.end())
+         {
+
             accumValue += tokenIter->second.score;
             if (contiguous)
             {
@@ -228,7 +284,6 @@ double checkConnectedPieces(const Environment &gameBoard, int actPlayer, vector<
             {
                break;
             }
-            accumValue += 0.5;
          }
       }
 
@@ -236,7 +291,13 @@ double checkConnectedPieces(const Environment &gameBoard, int actPlayer, vector<
 
    return accumValue;
 }
-double checkGrid(const Environment &gameBoard, int player, bool checkBomb)
+
+/**
+ * @brief Realiza el análisis del tablero
+ * @param gameBoard El tablero.
+ * @param player    El jugador que se está valorando.
+ */
+double checkGrid(const Environment &gameBoard, int player)
 {
 
    int enemy;
@@ -245,7 +306,7 @@ double checkGrid(const Environment &gameBoard, int player, bool checkBomb)
 
    double playerSum = 0, enemySum = 0;
 
-   token auxToken, playerBoom, enemyBoom;
+   token auxToken, playerBoom;
 
    pair<int, int> auxPair;
 
@@ -285,11 +346,6 @@ double checkGrid(const Environment &gameBoard, int player, bool checkBomb)
             {
                enemyTokensMap.insert(pair<pair<int,int>, token>(auxPair, auxToken));
                enemyTokens.push_back(auxToken);
-
-               if (gameBoard.See_Casilla(i,j) == (char)(enemy+3))
-               {
-                  enemyBoom = auxToken;
-               }
             }  
          }
       }
@@ -298,14 +354,9 @@ double checkGrid(const Environment &gameBoard, int player, bool checkBomb)
    playerSum = checkConnectedPieces(gameBoard, player, playerTokens, playerTokensMap, enemyTokensMap);
    enemySum = checkConnectedPieces(gameBoard, enemy, enemyTokens, enemyTokensMap, playerTokensMap);
    
-   if (gameBoard.Have_BOOM(player) && checkBomb)
+   if (gameBoard.Have_BOOM(player))
    {
       playerSum += checkBoomEffects(gameBoard, player);
-   }
-
-   if (gameBoard.Have_BOOM(enemy) && checkBomb)
-   {
-      enemySum += checkBoomEffects(gameBoard, enemy);
    }
 
    return playerSum - enemySum;
@@ -313,24 +364,31 @@ double checkGrid(const Environment &gameBoard, int player, bool checkBomb)
 
 
 // Funcion heuristica (ESTA ES LA QUE TENEIS QUE MODIFICAR)
+/**
+ * @brief Función heurística que valora el estado del tablero.
+ * @param estado  El estado del tablero a valorar.
+ * @param jugador Para quién se está realizando la valoración.
+ * @return Valor heurístico, mientras más positivo, mejor para el jugador, mientras más negativo, peor.
+ */
 double Valoracion(const Environment &estado, int jugador)
 {
    double valorH = 0;
+   // Si el juego ha terminado, revisar quién ganó.
    if (estado.JuegoTerminado())
    {
       int winner = estado.RevisarTablero();
       if (winner == jugador)
       {
-         valorH = 99999999;
+         valorH = 9999;
       }
       else
       if (jugador != 0)
       {
-         valorH = -99999999;
+         valorH = -9999;
       }
    }
-
-   valorH += checkGrid(estado, jugador, true);
+   // Realizar una valoración del tablero.
+   valorH += checkGrid(estado, jugador);
 
    return valorH;
 }
@@ -358,12 +416,15 @@ void JuegoAleatorio(bool aplicables[], int opciones[], int &j){
  * @param maxDepth   Profundidad máxima de la recursión.
  * @param alpha      Valor actual de alpha, cota para MAX.
  * @param beta       Valor actual de beta, cota para MIN.
+ * @param MAX        Indica que jugador es MAX.
  * @returns El valor alpha o beta del nodo hijo a padre.
  */
 double alphaBetaPruning(Environment actGame, int actPlayer, Environment::ActionType &bestAction, int actDepth, int maxDepth, double alpha, double beta, int MAX)
 {
+   // Caso base: Se ha llegado al máximo de profundidad o bien el juego ha terminado.
    if (actDepth == maxDepth || actGame.JuegoTerminado())
    {
+      // El nodo hoja retorna su valoración heurística.
       return Valoracion(actGame, MAX);
    }
    else
@@ -374,21 +435,28 @@ double alphaBetaPruning(Environment actGame, int actPlayer, Environment::ActionT
       double actValue;
       Environment nextGame;
 
+      // Obtener las acciones posibles desde la configuración actual del tablero.
       actGame.possible_actions(possible);
 
+      // Mientras hayan acciones posibles y alpha sea menor que beta...
       while (nextAction < 8 && alpha < beta)
       {
+         // Generar una jugada.
          nextGame = actGame.GenerateNextMove(nextAction);
 
+         // Si es posible, y la acción es menor que 8; realizarla.
          if (possible[nextAction] && nextAction < 8)
          {
             actValue = alphaBetaPruning(nextGame, nextGame.JugadorActivo(), bestAction, actDepth + 1, maxDepth, alpha, beta, MAX);
+
+            // Si el valor actual es de MAX y es mejor que el alfa de este nodo, actualizarlo y guardar la acción.
             if (actPlayer == MAX && actValue > alpha)
             {               
                localAction = nextAction;
                alpha = actValue;
             }
             
+            // Si no es MAX, y es menor que beta, actualizar beta.
             if (actPlayer != MAX && actValue < beta)
             {
                beta = actValue;
@@ -396,8 +464,11 @@ double alphaBetaPruning(Environment actGame, int actPlayer, Environment::ActionT
 
          }
       }
+
+      // Una vez se termina el bucle o sucede una poda se guarda la mejor acción para pasarla por referencia.
       bestAction = static_cast< Environment::ActionType > (localAction);
 
+      // Dependiendo si es MAX o no, devolver alfa o beta.
       if (actGame.JugadorActivo() == MAX)
       {
          return alpha;

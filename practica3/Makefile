@@ -14,23 +14,23 @@ clean: clean-custom
 	${RM} $(OBJ) $(BIN)
 
 $(BIN): $(OBJ)
-	$(CPP) $(OBJ) -o $(BIN) $(LIBS)
+	$(CPP) $(OBJ) -g -o $(BIN) $(LIBS)
 
 main.o: main.cpp
-	$(CPP) -c main.cpp -o main.o $(CXXFLAGS)
+	$(CPP) -c main.cpp -g -o main.o $(CXXFLAGS)
 
 player.o: player.cpp
-	$(CPP) -c player.cpp -o player.o $(CXXFLAGS)
+	$(CPP) -c player.cpp -g -o player.o $(CXXFLAGS)
 
 environment.o: environment.cpp
-	$(CPP) -c environment.cpp -o environment.o $(CXXFLAGS)
+	$(CPP) -c environment.cpp -g -o environment.o $(CXXFLAGS)
 
 
 GUI.o: GUI.cpp
-	$(CPP) -c GUI.cpp -o GUI.o $(CXXFLAGS)
+	$(CPP) -c GUI.cpp -g -o GUI.o $(CXXFLAGS)
 
 conexion.o: conexion.cpp
-	$(CPP) -c conexion.cpp -o conexion.o $(CXXFLAGS)
+	$(CPP) -c conexion.cpp -g -o conexion.o $(CXXFLAGS)
 
 
 

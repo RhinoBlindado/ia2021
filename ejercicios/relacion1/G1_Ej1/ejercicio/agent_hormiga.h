@@ -29,6 +29,7 @@ public:
 
 private:
 	bool FEROMONA_;
+	int turn = 0;
 };
 
 string ActionStr(Agent::ActionType);
